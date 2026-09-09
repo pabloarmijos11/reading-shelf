@@ -1,59 +1,38 @@
-# ReadingShelf
+# reading-shelf
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.7.
+App de libros construida con Angular (SSR). Busca libros a través de la
+[Open Library API](https://openlibrary.org/developers/api) y, con una
+cuenta, permite guardar tu propia lista de lectura (quiero leer / leyendo /
+leído) y organizar libros en estanterías personalizadas.
 
-## Development server
+## Stack
 
-To start a local development server, run:
+- Angular con Server-Side Rendering
+- Tailwind CSS
+- Firebase Authentication + Firestore
+- Vitest (tests unitarios) y Playwright (tests end-to-end)
+- GitHub Actions (CI) y Vercel (deploy)
 
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Cómo instalar y correr
 
 ```bash
-ng generate --help
+npm install
+npm start          # servidor de desarrollo
+npm run build      # build de producción (incluye SSR)
+npm test           # tests unitarios
+npm run e2e        # tests end-to-end
 ```
 
-## Building
+## Estructura de carpetas
 
-To build the project run:
-
-```bash
-ng build
+```
+src/app/
+  core/         servicios de Auth y Firestore, guards
+  features/     search, book-detail, library, auth
+  shared/       componentes reutilizables (ej. book-card)
+e2e/            tests de Playwright
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Estado
 
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Proyecto en construcción.

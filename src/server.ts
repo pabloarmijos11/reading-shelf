@@ -10,7 +10,24 @@ import { join } from 'node:path';
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
-const angularApp = new AngularNodeAppEngine();
+
+/**
+ * The SSR engine validates the incoming `Host` header to prevent SSRF. Hosts
+ * that are not listed here are NOT server-rendered: Angular logs an error and
+ * silently falls back to client-side rendering (a future major will make it a
+ * 400 instead). Set `NG_ALLOWED_HOSTS` (comma-separated) in every deployed
+ * environment; the fallback below only covers local `serve:ssr`.
+ *
+ * Entries are matched against the URL *hostname*, so they must NOT include the
+ * port: `localhost` works, `localhost:4000` never matches — even though the
+ * error message quotes the header with the port. `*.example.com` wildcards and
+ * a bare `*` are also supported.
+ */
+const allowedHosts = process.env['NG_ALLOWED_HOSTS']?.split(',').map((host) => host.trim()) ?? [
+  'localhost',
+];
+
+const angularApp = new AngularNodeAppEngine({ allowedHosts });
 
 /**
  * Example Express Rest API endpoints can be defined here.
