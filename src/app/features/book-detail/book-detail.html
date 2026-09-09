@@ -1,1 +1,57 @@
-<p>book-detail works!</p>
+<a
+  routerLink="/"
+  class="text-sm text-stone-600 underline underline-offset-2 hover:text-stone-900"
+>
+  ← Back to search
+</a>
+
+@if (summary.isLoading()) {
+  <p class="mt-6 text-sm text-stone-600">Loading book…</p>
+} @else if (summary.error()) {
+  <p role="alert" class="mt-6 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+    Could not load this book from Open Library.
+  </p>
+} @else if (summary.value(); as book) {
+  <article class="mt-6 flex flex-col gap-8 sm:flex-row">
+    <div class="w-full max-w-48 shrink-0">
+      <div class="flex aspect-2/3 items-center justify-center overflow-hidden rounded-lg bg-stone-100">
+        @if (cover(); as coverSrc) {
+          <img [src]="coverSrc" alt="" class="h-full w-full object-cover" />
+        } @else {
+          <span class="px-2 text-center text-xs text-stone-500">No cover</span>
+        }
+      </div>
+    </div>
+
+    <div class="flex-1">
+      <h1 class="text-2xl font-semibold tracking-tight">{{ book.title }}</h1>
+      <p class="mt-1 text-sm text-stone-600">{{ authorLine() }}</p>
+      @if (book.firstPublishYear; as year) {
+        <p class="mt-1 text-sm text-stone-500">First published in {{ year }}</p>
+      }
+
+      @if (content.isLoading()) {
+        <p class="mt-6 text-sm text-stone-600">Loading description…</p>
+      } @else if (content.value().description; as description) {
+        <p class="mt-6 whitespace-pre-line text-sm leading-relaxed text-stone-800">
+          {{ description }}
+        </p>
+      } @else {
+        <p class="mt-6 text-sm text-stone-500">No description available.</p>
+      }
+
+      @if (subjects().length > 0) {
+        <h2 class="mt-8 text-sm font-medium">Subjects</h2>
+        <ul class="mt-2 flex flex-wrap gap-2">
+          @for (subject of subjects(); track subject) {
+            <li class="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700">
+              {{ subject }}
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </article>
+} @else {
+  <p class="mt-6 text-sm text-stone-600">This book could not be found.</p>
+}

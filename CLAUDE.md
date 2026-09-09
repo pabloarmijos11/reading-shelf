@@ -104,6 +104,23 @@ e2e/                          # specs de Playwright
 - **No agregar `ChangeDetectionStrategy.OnPush`.** `AGENTS.md` lo pide como
   regla general de Angular, pero en una app zoneless es redundante: la
   detección de cambios ya se dispara solo por signals. El CLI tampoco lo genera.
+- **Los datos se piden con `httpResource`, nunca con `fetch` a pelo.** Va por
+  el `HttpClient` de Angular, y eso es lo que permite que las respuestas
+  obtenidas durante el SSR viajen dentro del HTML (transfer state) y el
+  navegador no las vuelva a pedir al hidratar. Con `fetch` nativo se pierde y
+  todo se pide dos veces. Requiere `provideHttpClient(withFetch())`.
+- **El estado de la búsqueda vive en la URL** (`?q=`), no en un signal del
+  componente: es lo que hace que una búsqueda sea renderizable en servidor y
+  compartible. El componente navega en el submit; el resource reacciona al
+  query param, no al submit.
+- **Las peticiones a Open Library se declaran en `OpenLibraryService`**, que
+  devuelve resources ya construidos. Los componentes no arman URLs.
+- **Las descripciones se limpian, no se renderizan.** Open Library las guarda
+  en Markdown y cualquier colaborador puede editarlas: pintarlas como HTML
+  obligaría a sanitizar contenido ajeno, y no compensa por un párrafo de
+  prosa. `stripMarkdown()` quita la sintaxis y conserva el texto del enlace.
+  Si algún día se quiere formato real, hay que sanitizar de verdad — no basta
+  con `innerHTML`.
 - `linkedSignal` se usa para el estado de lectura editable en la página de
   detalle: se inicializa desde un `resource()` que lee Firestore, pero el
   usuario puede pisarlo localmente sin esperar el round-trip.
@@ -125,6 +142,32 @@ e2e/                          # specs de Playwright
   `npm run serve:ssr:reading-shelf` y mirar el HTML servido. Con SSR correcto,
   `<app-root>` trae el marcado y el atributo `ng-server-context="ssr"`; sin él,
   aparece `<app-root></app-root>` vacío.
+
+### Trampas descubiertas (fase 2)
+- **`withComponentInputBinding()` escribe `undefined` cuando el query param no
+  está**, pisando el valor por defecto del `input()`. En `/` sin `?q=`, eso
+  hacía reventar `q().trim()` dentro del resource y la página mostraba un
+  banner de error falso, con HTTP 200 y solo un rastro en el log del servidor.
+  Solución: `input('', { transform: (v: string | undefined) => v ?? '' })`.
+  Vale para cualquier input atado a un **query** param (los params de ruta
+  obligatorios como `:id` no sufren esto).
+- **`fixture.whenStable()` se cuelga con `httpResource` + `HttpTestingController`.**
+  El controller deja las peticiones abiertas a propósito, así que la app nunca
+  estabiliza y el test muere por timeout a los 5 s — un fallo que *parece* de
+  rendimiento y en realidad es de diseño del test. En componentes que disparan
+  resources hay que usar `fixture.detectChanges()`, o responder las peticiones
+  con `httpMock` antes de esperar.
+- **`httpResource` sigue marcado como `@experimental`** en Angular 21 (desde
+  19.2). Se usa igual porque es lo que integra el HTTP stack con signals, pero
+  su API puede cambiar entre versiones.
+- **La API de Open Library es inconsistente en `description`**: unos works la
+  devuelven como string y otros como `{ type, value }`. Verificado sobre
+  registros reales (`OL45804W` string, `OL27482W` objeto). Se normaliza en
+  `toBookContent()`; hay tests que cubren ambas formas.
+- **Los autores no salen del work.** `/works/{id}.json` solo trae claves de
+  autor (`/authors/OL26320A`), lo que obligaría a una petición por autor. Se
+  evita consultando el índice de búsqueda con `q=key:/works/{id}`, que ya
+  devuelve `author_name` resuelto.
 - **Zoneless no lleva provider explícito.** `app.config.ts` no tiene
   `provideZonelessChangeDetection()`: en Angular 21 el flag `--zoneless` del
   scaffold basta, y la prueba de que está activo es que **`zone.js` no

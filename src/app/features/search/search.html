@@ -1,1 +1,46 @@
-<p>search works!</p>
+<h1 class="text-2xl font-semibold tracking-tight">Search books</h1>
+<p class="mt-1 text-sm text-stone-600">Powered by the Open Library API.</p>
+
+<form (submit)="onSubmit($event)" class="mt-6 flex gap-2" role="search">
+  <label for="q" class="sr-only">Search by title, author or subject</label>
+  <input
+    id="q"
+    name="q"
+    type="search"
+    [value]="draft()"
+    (input)="onInput($any($event.target).value)"
+    placeholder="The Hobbit, Tolkien, science fiction…"
+    class="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+  />
+  <button
+    type="submit"
+    class="rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+  >
+    Search
+  </button>
+</form>
+
+<div class="mt-8" aria-live="polite">
+  @if (books.isLoading()) {
+    <p class="text-sm text-stone-600">Searching…</p>
+  } @else if (books.error()) {
+    <p role="alert" class="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+      Could not reach Open Library. Please try again.
+    </p>
+  } @else if (q() && books.value().length === 0) {
+    <p class="text-sm text-stone-600">No books found for “{{ q() }}”.</p>
+  } @else if (books.value().length > 0) {
+    <p class="text-sm text-stone-600">
+      {{ books.value().length }} results for “{{ q() }}”
+    </p>
+    <ul class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      @for (book of books.value(); track book.id) {
+        <li class="h-full">
+          <app-book-card [book]="book" />
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="text-sm text-stone-600">Search for a book to get started.</p>
+  }
+</div>
