@@ -89,8 +89,9 @@ e2e/                          # specs de Playwright
 - CI con GitHub Actions → sin skill; el workflow se escribe a mano
 
 ## Convenciones y reglas del proyecto
-- Reglas de seguridad de Firestore: patrón cerrado por dueño (`ownerId`),
-  igual que en `expense-tracker` — no reinventar el patrón desde cero.
+- Reglas de seguridad de Firestore: cerradas por dueño, pero **por ruta, no
+  por campo `ownerId`** — a diferencia de `expense-tracker`. Ver "Firestore:
+  modelo y reglas" más abajo.
 - No usar `@angular/fire`; inyección propia de `Firestore`/`Auth` como
   tokens, igual que en los otros proyectos personales.
 - Las páginas públicas (`/`, `/books/:id`) deben renderizarse en servidor de
@@ -124,6 +125,39 @@ e2e/                          # specs de Playwright
 - `linkedSignal` se usa para el estado de lectura editable en la página de
   detalle: se inicializa desde un `resource()` que lee Firestore, pero el
   usuario puede pisarlo localmente sin esperar el round-trip.
+
+### Firestore: modelo y reglas
+
+Base **Standard**, creada el 2026-09-09. Las reglas viven en `firestore.rules`
+(raíz) y **se publican a mano** pegándolas en la consola, igual que en
+`expense-tracker`: no hay `firebase.json` ni CLI de Firebase en el repo. El
+archivo del repo es la fuente de verdad, así que si se edita en la consola hay
+que traerlo de vuelta.
+
+- **Todo cuelga de `users/{uid}`**: `users/{uid}/books/{workId}` y
+  `users/{uid}/shelves/{shelfId}`. Ningún documento guarda `ownerId` — la ruta
+  ya dice de quién es, y eso reduce cada regla a `request.auth.uid == userId`,
+  sin índices por dueño ni `where('ownerId','==',uid)` en las consultas.
+  Se eligió sobre el patrón plano de `expense-tracker` porque la lista de
+  lectura siempre se lee entera y nunca se cruza entre usuarios.
+- **El id del documento de un libro es el work id de Open Library**, así que
+  leer el estado de una ficha es un `getDoc` directo, sin query.
+- **Las fechas las pone el servidor y la regla lo verifica.** El cliente manda
+  `serverTimestamp()` y la regla exige `updatedAt == request.time`. Un
+  `Date.now()` del cliente sería infalsificable de comprobar. Al leer llega un
+  `Timestamp`, no un número: se normaliza con `timestampToMillis()`, que lo
+  detecta por `toMillis()` en vez de importar `firebase/firestore` (que
+  rompería el SSR).
+- **`createdAt` es inmutable** en las estanterías: en `update` se compara
+  contra `resource.data.createdAt`, no contra `request.time`, porque los
+  renames y los `arrayUnion` son escrituras parciales.
+- **Límite conocido: las reglas no pueden recorrer una lista.** El tamaño de
+  `authors` y `bookIds` está capado, el de cada elemento no. Por eso el cliente
+  trunca todo contra `LIMITS` (en `library.models.ts`) antes de escribir:
+  **si cambia un límite hay que cambiarlo en los dos sitios.**
+- **Los `resource()` de `LibraryService` quedan idle sin sesión** (`params`
+  devuelve `undefined` cuando no hay uid), lo que además los apaga solos
+  durante el SSR, donde nunca hay usuario.
 
 ### Trampas descubiertas (Angular 21)
 - **`allowedHosts` decide si hay SSR o no, y falla en silencio.** El motor de

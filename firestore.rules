@@ -1,0 +1,138 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed data model
+// ===============================================================
+//
+// Everything a user owns lives under their own uid. There is no `ownerId`
+// field anywhere: the document path already identifies the owner, which is
+// what keeps these rules to a single identity check per collection.
+//
+// Note this differs from `expense-tracker`, which uses flat collections with
+// an `ownerId` field. Both patterns are sound; the per-user subcollection was
+// chosen here because the reading list is always read "all of mine", never
+// across users, so there is nothing to gain from a flat collection.
+//
+// Document: users/{userId}
+//   Not used. No profile document is stored, and writing one is denied.
+//
+// Collection: users/{userId}/books/{workId}
+//   Document ID: the Open Library work id (e.g. "OL27482W")
+//   Fields:
+//     - status: string (required) - one of 'want' | 'reading' | 'read'
+//     - title: string (required, 1-300 chars) - denormalised from Open Library
+//     - authors: list of strings (required, max 20) - denormalised
+//     - coverId: number (optional, positive) - Open Library cover id
+//     - updatedAt: timestamp (required) - must equal the server time of the write
+//
+// Collection: users/{userId}/shelves/{shelfId}
+//   Document ID: auto-generated
+//   Fields:
+//     - name: string (required, 1-60 chars)
+//     - bookIds: list of strings (required, max 500) - Open Library work ids
+//     - createdAt: timestamp (required, IMMUTABLE after creation)
+//     - updatedAt: timestamp (required) - must equal the server time of the write
+//
+// ---------------------------------------------------------------
+// Known limitation, deliberately accepted
+// ---------------------------------------------------------------
+// Security rules cannot iterate over a list, so the *contents* of `authors`
+// and `bookIds` are unchecked: a determined signed-in user could store 20
+// very long strings in their own `authors` array. The blast radius is their
+// own document, bounded by Firestore's 1 MB document limit, and the client
+// truncates every field before writing (see LIMITS in library.models.ts).
+// Size of the list is capped here; size of each element is not.
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -----------------------------------------------------------
+    // Helper functions
+    // -----------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // The path segment *is* the ownership check.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Server-stamped time, so a client cannot backdate or postdate a write.
+    // `serverTimestamp()` resolves to exactly `request.time`.
+    function isServerTime(value) {
+      return value is timestamp && value == request.time;
+    }
+
+    // -----------------------------------------------------------
+    // Domain validators — used on BOTH create and update
+    // -----------------------------------------------------------
+
+    function isValidEntry(data) {
+      return data.keys().hasAll(['status', 'title', 'authors', 'updatedAt']) &&
+             data.keys().hasOnly(['status', 'title', 'authors', 'coverId', 'updatedAt']) &&
+             data.status in ['want', 'reading', 'read'] &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 300 &&
+             data.authors is list && data.authors.size() <= 20 &&
+             (!('coverId' in data) || (data.coverId is int && data.coverId > 0)) &&
+             isServerTime(data.updatedAt);
+    }
+
+    function isValidShelf(data) {
+      return data.keys().hasAll(['name', 'bookIds', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['name', 'bookIds', 'createdAt', 'updatedAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 60 &&
+             data.bookIds is list && data.bookIds.size() <= 500 &&
+             data.createdAt is timestamp &&
+             isServerTime(data.updatedAt);
+    }
+
+    // -----------------------------------------------------------
+    // Rules
+    // -----------------------------------------------------------
+
+    match /users/{userId} {
+
+      // No profile document exists, so nobody may create one. Rules are not
+      // recursive, so this does not affect the subcollections below.
+      allow read, write: if false;
+
+      // The reading list. Written with a full `setDoc`, so create and update
+      // validate identically.
+      match /books/{workId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidEntry(request.resource.data);
+
+        allow update: if isOwner(userId) &&
+                         isValidEntry(request.resource.data);
+
+        allow delete: if isOwner(userId);
+      }
+
+      // Shelves. Updates arrive as partial writes (rename, arrayUnion), so
+      // `createdAt` is pinned to its stored value instead of the server time.
+      match /shelves/{shelfId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidShelf(request.resource.data) &&
+                         isServerTime(request.resource.data.createdAt);
+
+        allow update: if isOwner(userId) &&
+                         isValidShelf(request.resource.data) &&
+                         request.resource.data.createdAt == resource.data.createdAt;
+
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // Default deny: anything not matched above is unreachable.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
