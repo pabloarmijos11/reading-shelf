@@ -143,6 +143,33 @@ e2e/                          # specs de Playwright
   `<app-root>` trae el marcado y el atributo `ng-server-context="ssr"`; sin él,
   aparece `<app-root></app-root>` vacío.
 
+### Trampas descubiertas (fase 3)
+- **`firebase/firestore` importado estáticamente rompe el SSR.** Al añadirlo,
+  las llamadas a Open Library empezaron a fallar en el servidor con
+  `status: 0` y las páginas volvieron a servirse vacías — con HTTP 200 y sin
+  más rastro que una línea en el log. La causa es su build de Node, que arrastra
+  gRPC e interfiere con las peticiones HTTP salientes de Angular. Aislado
+  quitándolo: sin Firestore el SSR vuelve a funcionar al instante.
+  - **Regla**: Firestore se carga solo con `import()` dinámico y solo en el
+    navegador, vía `FirestoreLoader`. Sus funciones (`doc`, `getDoc`,
+    `setDoc`, …) también salen de ese import dinámico. **Nunca** un
+    `import ... from 'firebase/firestore'` a nivel de módulo.
+  - No se pierde nada: la sesión vive en el navegador, así que durante el SSR
+    no hay usuario y por tanto no hay datos suyos que leer.
+  - Beneficio extra: sacó ~300 kB del bundle inicial (699 kB → 390 kB) y
+    silenció el aviso de presupuesto excedido.
+- **Auth es de navegador.** En el servidor no hay sesión posible, así que
+  `AuthService` marca `ready = true` con `user = null` de inmediato; si
+  esperara a `onAuthStateChanged`, el render del servidor se colgaría con un
+  listener que allí no dispara nunca.
+- **`vi.mock('firebase/auth')` no admite `importOriginal()`.** Cargar el módulo
+  real dentro de la factory choca con `firebase.ts`, que también lo importa, y
+  revienta con `Cannot access '__vi_import_1__' before initialization`. Hay que
+  escribir el doble completo, solo con las funciones que la app usa.
+- **`vi.mock` se eleva sobre todos los imports**, así que su factory no puede
+  usar variables normales del módulo. Lo que necesite compartir con los tests
+  se declara con `vi.hoisted()`.
+
 ### Trampas descubiertas (fase 2)
 - **`withComponentInputBinding()` escribe `undefined` cuando el query param no
   está**, pisando el valor por defecto del `input()`. En `/` sin `?q=`, eso

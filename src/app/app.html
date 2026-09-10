@@ -1,9 +1,36 @@
 <div class="min-h-screen bg-stone-50 text-stone-900">
   <header class="border-b border-stone-200 bg-white">
-    <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+    <nav class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
       <a routerLink="/" class="text-lg font-semibold tracking-tight">
         {{ title() }}
       </a>
+
+      <!--
+        Rendered only once the session is known. On the server that is
+        immediately, with nobody signed in — which is what an anonymous visitor
+        (and a crawler) sees anyway.
+      -->
+      <div class="flex min-h-9 items-center gap-4 text-sm">
+        @if (auth.ready()) {
+          @if (auth.isSignedIn()) {
+            <span class="hidden text-stone-600 sm:inline">{{ auth.email() }}</span>
+            <button
+              type="button"
+              (click)="signOut()"
+              class="rounded-md border border-stone-300 px-3 py-1.5 font-medium transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+            >
+              Sign out
+            </button>
+          } @else {
+            <a
+              routerLink="/login"
+              class="rounded-md border border-stone-300 px-3 py-1.5 font-medium transition hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+            >
+              Sign in
+            </a>
+          }
+        }
+      </div>
     </nav>
   </header>
 

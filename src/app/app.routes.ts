@@ -12,6 +12,22 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/book-detail/book-detail').then((m) => m.BookDetail),
   },
+  // One component serves both routes; the mode arrives through the route data,
+  // which `withComponentInputBinding()` binds like any other input.
+  {
+    path: 'login',
+    title: 'Sign in — reading-shelf',
+    data: { mode: 'login' },
+    loadComponent: () =>
+      import('./features/auth/auth-page/auth-page').then((m) => m.AuthPage),
+  },
+  {
+    path: 'signup',
+    title: 'Create account — reading-shelf',
+    data: { mode: 'signup' },
+    loadComponent: () =>
+      import('./features/auth/auth-page/auth-page').then((m) => m.AuthPage),
+  },
   {
     path: '**',
     redirectTo: '',
