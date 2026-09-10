@@ -78,8 +78,16 @@
         </div>
       }
 
+      <!--
+        The work record is a separate request from the summary, so it gets its
+        own error branch. Without it, `content.value()` below would throw when
+        that one request fails — a failed resource throws on read — and take
+        the whole page down with it even though the book itself loaded fine.
+      -->
       @if (content.isLoading()) {
         <p class="mt-6 text-sm text-stone-600">Loading description…</p>
+      } @else if (content.error()) {
+        <p class="mt-6 text-sm text-stone-500">The description could not be loaded.</p>
       } @else if (content.value().description; as description) {
         <p class="mt-6 whitespace-pre-line text-sm leading-relaxed text-stone-800">
           {{ description }}

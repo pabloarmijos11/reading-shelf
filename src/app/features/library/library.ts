@@ -92,8 +92,13 @@ export class Library {
     }));
   });
 
+  /**
+   * Open Library's 'S' size is about 35px wide — narrower than the 44px slot
+   * it is drawn into, and half that again on a high-DPI screen, so it came out
+   * visibly blurry. 'M' is the smallest size that holds up here.
+   */
   protected cover(entry: LibraryEntry): string | undefined {
-    return coverUrl(entry.coverId, 'S');
+    return coverUrl(entry.coverId, 'M');
   }
 
   // ---------------------------------------------------------------------------

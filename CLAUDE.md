@@ -161,6 +161,22 @@ que traerlo de vuelta.
 
 ### Trampas descubiertas (fase 4)
 
+- **`resource.value()` LANZA cuando el resource está en error**; no devuelve
+  `undefined`. Y un `effect` que lanza aborta el render a media pasada, con
+  daño colateral: la ficha se quedaba clavada en "Loading book…" en vez de
+  mostrar su mensaje de error, y encima salía un `NG0100:
+  ExpressionChangedAfterItHasBeenCheckedError` que parecía un problema
+  distinto. Los dos síntomas eran el mismo bug.
+  - **Regla**: fuera de una rama de plantilla que ya haya comprobado el error,
+    todo acceso a `value()` va precedido de `hasValue()`. Vale para `effect`,
+    `computed` y `linkedSignal`.
+  - Ojo con los resources **independientes**: en `book-detail` conviven
+    `summary` y `content`, que son dos peticiones distintas. Que una tenga
+    valor no dice nada de la otra, así que cada una necesita su propia rama de
+    error en la plantilla.
+  - Reproducible parcheando `window.fetch` en el navegador para rechazar las
+    llamadas a Open Library — más fiable que esperar a que la API falle sola.
+
 - **Una ruta protegida no se puede renderizar en servidor.** `/library` es la
   única excepción a `RenderMode.Server`: usa `RenderMode.Client`. El guard
   corre en el servidor, donde `AuthService` responde "ready, sin usuario"

@@ -70,8 +70,16 @@ export class BookDetail {
     return authors.length ? authors.join(', ') : 'Unknown author';
   });
 
-  /** Only the first few subjects — records often carry dozens. */
-  protected readonly subjects = computed(() => this.content.value().subjects.slice(0, 8));
+  /**
+   * Only the first few subjects — records often carry dozens.
+   *
+   * Guarded by `hasValue()` for the same reason as the title effect: the work
+   * record is a separate request from the summary, so it can fail on its own,
+   * and reading `value()` on a failed resource throws.
+   */
+  protected readonly subjects = computed(() =>
+    this.content.hasValue() ? this.content.value().subjects.slice(0, 8) : [],
+  );
 
   /** Sends the user back here after signing in. */
   protected readonly loginParams = computed(() => ({ redirectTo: `/books/${this.id()}` }));
@@ -80,7 +88,12 @@ export class BookDetail {
     // Runs during SSR too, so the served HTML carries the book's own title
     // instead of the generic route title.
     effect(() => {
-      const book = this.summary.value();
+      // `hasValue()` is not optional here: reading `value()` on a resource that
+      // is in an error state THROWS rather than returning undefined. An effect
+      // that throws aborts mid-render, which left the page stuck on "Loading
+      // book…" whenever Open Library timed out — with the real error only
+      // visible in the console.
+      const book = this.summary.hasValue() ? this.summary.value() : undefined;
       this.title.setTitle(book ? `${book.title} — reading-shelf` : 'Book detail — reading-shelf');
     });
   }
