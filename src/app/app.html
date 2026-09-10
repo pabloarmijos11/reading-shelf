@@ -13,6 +13,12 @@
       <div class="flex min-h-9 items-center gap-4 text-sm">
         @if (auth.ready()) {
           @if (auth.isSignedIn()) {
+            <a
+              routerLink="/library"
+              class="font-medium underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+            >
+              My library
+            </a>
             <span class="hidden text-stone-600 sm:inline">{{ auth.email() }}</span>
             <button
               type="button"

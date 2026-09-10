@@ -159,6 +159,34 @@ que traerlo de vuelta.
   devuelve `undefined` cuando no hay uid), lo que además los apaga solos
   durante el SSR, donde nunca hay usuario.
 
+### Trampas descubiertas (fase 4)
+
+- **Una ruta protegida no se puede renderizar en servidor.** `/library` es la
+  única excepción a `RenderMode.Server`: usa `RenderMode.Client`. El guard
+  corre en el servidor, donde `AuthService` responde "ready, sin usuario"
+  porque la sesión vive en el navegador, así que **redirigiría a `/login` a
+  todo el mundo**, incluidos los usuarios con sesión válida. En cliente el
+  guard corre donde la sesión existe. No se pierde nada: la página es privada
+  y sus datos tampoco se podrían leer desde el servidor.
+- **El build avisa de gRPC y es esperado.** Desde que algún componente importa
+  `LibraryService`, el build del servidor incluye
+  `@firebase/firestore/dist/index.node.mjs` como chunk perezoso y esbuild avisa
+  de que `@grpc/grpc-js` no es ESM. **No rompe el SSR**: el chunk nunca se
+  ejecuta, porque `FirestoreLoader` rechaza fuera del navegador. Lo verificado
+  es que las peticiones a Open Library siguen resolviendo en servidor. El bug
+  de la fase 3 era ejecutarlo, no empaquetarlo.
+- **Las actualizaciones optimistas se hacen sobre `resource.value`**, que es
+  escribible (`this.entries.value.set(...)`). Cambia el estado del resource a
+  `'local'`. En caso de error se restaura la lista anterior, guardada antes de
+  escribir. La alternativa —`reload()` tras cada escritura— costaría un
+  round-trip por clic para datos que el cliente ya tiene.
+- **Todo componente que inyecte `LibraryService` necesita `fakeLibrary()`** en
+  sus tests, o el TestBed falla con `NG0201: No provider found for
+  FIREBASE_APP` (la cadena es `LibraryService -> FirestoreLoader ->
+  FIREBASE_APP`). Vive en `core/library.fake.ts`, junto a `auth.fake.ts`.
+  Sus resources exponen `value` **escribible** a propósito, porque los
+  componentes lo mutan localmente.
+
 ### Trampas descubiertas (Angular 21)
 - **`allowedHosts` decide si hay SSR o no, y falla en silencio.** El motor de
   SSR valida el header `Host` contra una lista blanca (protección anti-SSRF).
@@ -244,7 +272,21 @@ que traerlo de vuelta.
   arrastra `prueba-firestore`): `ng generate` sí crea specs en este proyecto.
 
 ## Pendientes conocidos
-_(vacío por ahora — se completa a medida que aparezcan)_
+- **Open Library puede agotar el tiempo de conexión durante el SSR.** Medido el
+  2026-09-10 en `serve:ssr`: la primera petición a `openlibrary.org` tras
+  arrancar el servidor tardó 10.7 s y falló con `status: 0` y
+  `ConnectTimeoutError` (el timeout de conexión de undici son 10 s); los
+  reintentos resolvieron en 4.8 s y 0.7 s. La página se sirve igualmente con
+  HTTP 200, pero con el estado "Loading book…" en el HTML, que es justo lo que
+  vería un crawler. No es el bug de gRPC de la fase 3 — en la misma petición la
+  búsqueda sí resolvió. Queda por decidir si merece un timeout propio, un
+  reintento o un texto de respaldo mejor.
+- Quitar un libro de la lista de lectura **no lo saca de las estanterías**
+  (sería una escritura por estantería). La página muestra esos libros con su id
+  como etiqueta, al no poder resolver el título.
+- El estado de lectura no se sincroniza entre pestañas ni entre la ficha y
+  `/library`: cada página lee Firestore al montarse. Se resolvería con
+  `onSnapshot`, que aún no se usa en ningún sitio.
 
 ## Vault
 El vault (`Vault Proyectos`) no tenía nada documentado sobre SSR,

@@ -30,6 +30,54 @@
         <p class="mt-1 text-sm text-stone-500">First published in {{ year }}</p>
       }
 
+      <!--
+        The picker is browser-only by nature: the server has no session, so
+        `auth.ready()` is true there with nobody signed in, and crawlers get
+        the sign-in prompt — which is exactly what an anonymous visitor sees.
+      -->
+      @if (auth.ready()) {
+        <div class="mt-6">
+          @if (auth.isSignedIn()) {
+            <div role="group" aria-label="Reading status" class="flex flex-wrap gap-2">
+              @for (option of statuses; track option) {
+                <button
+                  type="button"
+                  [disabled]="saving()"
+                  [attr.aria-pressed]="status() === option"
+                  (click)="choose(option)"
+                  class="rounded-md border px-3 py-1.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900 disabled:opacity-50"
+                  [class]="
+                    status() === option
+                      ? 'border-stone-900 bg-stone-900 text-white'
+                      : 'border-stone-300 bg-white text-stone-800 hover:bg-stone-100'
+                  "
+                >
+                  {{ statusLabels[option] }}
+                </button>
+              }
+            </div>
+
+            @if (status()) {
+              <p class="mt-2 text-xs text-stone-500">
+                Click the selected status again to remove this book from your library.
+              </p>
+            }
+
+            @if (saveError(); as error) {
+              <p role="alert" class="mt-2 text-sm text-red-800">{{ error }}</p>
+            }
+          } @else {
+            <a
+              routerLink="/login"
+              [queryParams]="loginParams()"
+              class="inline-block text-sm text-stone-700 underline underline-offset-2 hover:text-stone-900"
+            >
+              Sign in to add this book to your library
+            </a>
+          }
+        </div>
+      }
+
       @if (content.isLoading()) {
         <p class="mt-6 text-sm text-stone-600">Loading description…</p>
       } @else if (content.value().description; as description) {

@@ -4,14 +4,29 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideRouter } from '@angular/router';
 
 import { BookDetail } from './book-detail';
+import { FakeAuthHandle, fakeAuth } from '../../core/auth.fake';
+import { FakeLibraryHandle, fakeLibrary } from '../../core/library.fake';
 
 describe('BookDetail', () => {
   let httpMock: HttpTestingController;
+  let auth: FakeAuthHandle;
+  let library: FakeLibraryHandle;
 
   beforeEach(async () => {
+    // The component now reads the user's library, so both services are faked:
+    // the real ones would pull the Firebase SDK into the TestBed.
+    auth = fakeAuth({ user: { uid: 'user-1', email: 'reader@example.com' } });
+    library = fakeLibrary();
+
     await TestBed.configureTestingModule({
       imports: [BookDetail],
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        auth.provider,
+        library.provider,
+      ],
     }).compileComponents();
 
     httpMock = TestBed.inject(HttpTestingController);

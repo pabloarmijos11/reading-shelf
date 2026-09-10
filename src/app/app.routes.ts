@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 
+import { authGuard } from './core/auth.guard';
+
 export const routes: Routes = [
   {
     path: '',
@@ -11,6 +13,12 @@ export const routes: Routes = [
     title: 'Book detail — reading-shelf',
     loadComponent: () =>
       import('./features/book-detail/book-detail').then((m) => m.BookDetail),
+  },
+  {
+    path: 'library',
+    title: 'Your library — reading-shelf',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/library/library').then((m) => m.Library),
   },
   // One component serves both routes; the mode arrives through the route data,
   // which `withComponentInputBinding()` binds like any other input.
