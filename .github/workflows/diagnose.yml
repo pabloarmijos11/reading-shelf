@@ -24,9 +24,9 @@ jobs:
       # real module first and the mock arrives too late. If it fails alone, the
       # module identity itself differs and no ordering is involved.
       - name: The spec on its own
-        run: npm test -- --watch=false auth.service
+        run: npm test -- --watch=false --include="src/app/core/auth.service.spec.ts"
         continue-on-error: true
 
       - name: The whole suite, in execution order
-        run: npm test -- --watch=false --reporter=verbose
+        run: npm test -- --watch=false --reporters=verbose
         continue-on-error: true
