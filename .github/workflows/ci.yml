@@ -1,0 +1,91 @@
+# Continuous integration.
+#
+# Two jobs on purpose, because the two suites cost very different things.
+#
+# `check` is the gate every pull request has to pass: format, unit tests and a
+# production build. It talks to nobody and runs in about a minute, so it can
+# run on every push without anyone thinking twice about it.
+#
+# `e2e` runs only once a change has landed on main. It drives a real browser
+# against the real Firebase project, signing in as the dedicated test account
+# and writing to its reading list — so two of these running at the same time
+# would fight over the same data. Keeping it off pull requests is what makes
+# that safe, together with the single worker configured in playwright.config.ts.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push makes the previous run pointless. Cancelling it keeps the queue
+# short — except on main, where each run is the record of one merged change.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    name: Format, unit tests and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      # `npm ci` rather than `npm install`: it installs exactly what the
+      # lockfile says and fails if the two files disagree, which is the whole
+      # point of running this somewhere other than the machine that wrote them.
+      - run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      # Vitest would otherwise sit in watch mode and never return.
+      - name: Unit tests
+        run: npm test -- --watch=false
+
+      - name: Production build
+        run: npm run build
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: check
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      # Only Chromium, matching playwright.config.ts. `--with-deps` pulls the
+      # system libraries the browser needs, which a bare runner does not have.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Playwright builds the app and starts the SSR server itself; see the
+      # `webServer` block in playwright.config.ts.
+      - name: Run end-to-end tests
+        run: npm run e2e
+        env:
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+
+      # The trace of a failed run is the only way to see what the browser saw,
+      # since nobody was watching. Kept for a week, which is long enough to
+      # look at a failure and short enough not to pile up.
+      - name: Upload the report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
