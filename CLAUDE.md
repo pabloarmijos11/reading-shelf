@@ -35,6 +35,8 @@ ng new reading-shelf --ssr --style=tailwind --routing --zoneless \
 npm start                        # servidor de desarrollo
 npm run build                    # build de producción (browser + server)
 npm test -- --watch=false        # tests unitarios (una pasada)
+npm run format                   # aplica Prettier a src/ y e2e/
+npm run format:check             # el gate de formato que corre el CI
 npm run serve:ssr:reading-shelf  # servir el build SSR ya compilado
 npm run e2e                      # tests E2E (compila y levanta el server solo)
 npm run e2e:ui                   # los mismos, en el runner interactivo
@@ -251,6 +253,37 @@ paralelismo: todos los specs comparten esa única lista de lectura.
   esto. En `e2e/tsconfig.json` los comentarios van con `//`.
 - Los E2E **no** los recoge Vitest: `tsconfig.spec.json` solo incluye
   `src/**/*.spec.ts`, y `e2e/` queda fuera.
+
+### Trampas descubiertas (fase 6)
+
+- **Una página con SSR está en pantalla mucho antes de poder responder.** Ver el
+  `<h1>` no dice nada: ese marcado vino del servidor. Escribir o pulsar antes de
+  que hidrate **no se pierde** —`withEventReplay()` guarda los eventos y los
+  reproduce al arrancar—, pero el replay tarda lo que tarde el bundle, y en una
+  máquina recién salida de un `npm run build` eso puede pasar de los 15 s de un
+  `expect`. El fallo entonces es incomprensible: la caja de búsqueda contiene el
+  texto y la URL nunca recoge el `?q=`, porque el test se rindió antes.
+  - **La señal es `[jsaction]` y `[ngh]`**: Angular marca con ellos el HTML que
+    mandó el servidor y los **borra al hidratar**. Medido: 4 y 2 antes, 0 y 0
+    después. `waitForHydration()` espera a que no quede ninguno. Hay que
+    llamarlo **después** de esperar el contenido propio de la página, nunca en
+    su lugar — en una página que no cargó nada el recuento también es cero.
+  - Reproducirlo a voluntad no sale gratis: con el servidor caliente pasa 10 de
+    10 veces. Se provocó retrasando el bundle a mano con `page.route()`, que de
+    paso demostró que el replay funciona y que el problema era solo de plazo.
+- **Un fallo de Open Library no debe tumbar la suite.** Esa API falla de vez en
+  cuando (ver Pendientes); cuando pasa, la ficha muestra su banner de error y
+  no hay `<h1>`, así que la app se comporta bien y el test cae igual. En CI
+  sería peor: bloquearía un deploy por una caída ajena. `gotoBook`/`reloadBook`
+  distinguen el banner del libro y recargan, hasta tres intentos.
+- **`prettier --check` puede fallar solo en Windows.** Con `core.autocrlf=true`
+  git deja CRLF en el working copy mientras Prettier escribe LF, así que el
+  mismo commit pasa en CI (Linux) y falla en local. Se ataja con
+  `.gitattributes` (`* text=auto eol=lf`), que fuerza LF también al hacer
+  checkout. Un gate que solo miente en un sitio es peor que no tener gate.
+- **El alcance de Prettier son `src/` y `e2e/`**, no el repositorio entero:
+  `CLAUDE.md` y `AGENTS.md` están escritos a mano y `angular.json` y los
+  `tsconfig.*` los regenera el CLI, que volvería a ensuciarlos.
 
 ### Trampas descubiertas (fase 4)
 

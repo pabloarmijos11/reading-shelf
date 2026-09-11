@@ -26,6 +26,29 @@ export function credentials(): { email: string; password: string } {
   return { email, password };
 }
 
+/**
+ * Waits until the client-side app has taken over the server-rendered HTML.
+ *
+ * Angular marks the markup it sent from the server with `ngh` (hydration
+ * boundaries) and `jsaction` (the events it is buffering until it boots), and
+ * strips both as it hydrates. An empty count is therefore the app saying "I am
+ * alive now" — measured, not guessed.
+ *
+ * Why this is needed at all: typing and clicking before hydration is not lost,
+ * because `withEventReplay()` buffers those events and replays them once the
+ * bundle boots. But the replay is only as fast as the boot, and on a machine
+ * still busy from `npm run build` that can take longer than an assertion's
+ * timeout. The failure then looks absurd — the search box holds the text, yet
+ * the URL never picks up `?q=` — when all that happened is that the test gave
+ * up first.
+ *
+ * Call it after the page's own content is on screen, never instead of that:
+ * on a page that has not loaded at all, the count is zero too.
+ */
+export async function waitForHydration(page: Page): Promise<void> {
+  await expect(page.locator('[jsaction], [ngh]')).toHaveCount(0, { timeout: 30_000 });
+}
+
 /** Every control the app disables while a write is in flight. */
 const IN_FLIGHT = 'button[disabled], select[disabled], input[disabled]';
 
@@ -122,27 +145,49 @@ export async function gotoLibrary(page: Page): Promise<void> {
 }
 
 /**
- * Opens a book page and waits for the book itself to be on screen.
+ * Waits for the book page to show the book, retrying if Open Library failed.
  *
- * The status picker lives inside the branch that renders the loaded book, so
- * it does not exist while Open Library is still answering — and that API has
- * been slow enough to time out during SSR. Waiting for the heading separates
- * "the API was slow" from "the status was not saved", which otherwise look
- * like the same failure.
+ * Two different waits, for two different reasons. The heading, because the
+ * status picker lives inside the branch that renders the loaded book and does
+ * not exist while the API is still answering — without this, a slow API reads
+ * as "the status was not saved". And hydration, because the picker is
+ * server-rendered: it is on screen, and clicking it before the app boots only
+ * queues the event for replay.
+ *
+ * The retry covers something these tests are not here to measure. Open Library
+ * fails outright often enough to have its own entry in the project notes, and
+ * when it does the page correctly shows its error banner and no heading. That
+ * is the app behaving well and the suite failing anyway — worse in CI, where it
+ * would block a deploy over somebody else's outage. A reload asks again.
  */
-export async function gotoBook(page: Page): Promise<void> {
-  await page.goto(`/books/${TEST_BOOK.id}`);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(TEST_BOOK.title, {
-    timeout: 30_000,
-  });
+async function showBook(page: Page, open: () => Promise<unknown>): Promise<void> {
+  const heading = page.getByRole('heading', { level: 1 });
+  const failed = page.getByRole('alert').filter({ hasText: 'Could not load this book' });
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await open();
+    await expect(heading.or(failed).first()).toBeVisible({ timeout: 30_000 });
+
+    if ((await failed.count()) === 0) {
+      await expect(heading).toHaveText(TEST_BOOK.title, { timeout: 30_000 });
+      await waitForHydration(page);
+      return;
+    }
+
+    open = () => page.reload();
+  }
+
+  throw new Error('Open Library did not serve the test book after three attempts.');
 }
 
-/** Reloads a book page and waits for the book to come back. */
+/** Opens the book page used across the signed-in specs. */
+export async function gotoBook(page: Page): Promise<void> {
+  await showBook(page, () => page.goto(`/books/${TEST_BOOK.id}`));
+}
+
+/** Reloads the book page, which is what proves a write reached Firestore. */
 export async function reloadBook(page: Page): Promise<void> {
-  await page.reload();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(TEST_BOOK.title, {
-    timeout: 30_000,
-  });
+  await showBook(page, () => page.reload());
 }
 
 /**

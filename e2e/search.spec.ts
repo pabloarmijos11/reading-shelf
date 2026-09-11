@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { waitForHydration } from './support';
+
 /**
  * The public half of the app: search and book detail, signed out.
  *
@@ -11,6 +13,12 @@ test.describe('search and book detail', () => {
   test('finds a book and opens its page', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Search books' })).toBeVisible();
+
+    // The heading is server-rendered, so seeing it says nothing about whether
+    // the app can respond yet. Typing before then is not lost — the events are
+    // replayed on boot — but the replay can arrive after this test has already
+    // given up waiting for the URL to change.
+    await waitForHydration(page);
 
     await page.getByRole('searchbox').fill('the hobbit');
     await page.getByRole('button', { name: 'Search' }).click();
