@@ -11,8 +11,7 @@ export const routes: Routes = [
   {
     path: 'books/:id',
     title: 'Book detail — reading-shelf',
-    loadComponent: () =>
-      import('./features/book-detail/book-detail').then((m) => m.BookDetail),
+    loadComponent: () => import('./features/book-detail/book-detail').then((m) => m.BookDetail),
   },
   {
     path: 'library',
@@ -26,15 +25,13 @@ export const routes: Routes = [
     path: 'login',
     title: 'Sign in — reading-shelf',
     data: { mode: 'login' },
-    loadComponent: () =>
-      import('./features/auth/auth-page/auth-page').then((m) => m.AuthPage),
+    loadComponent: () => import('./features/auth/auth-page/auth-page').then((m) => m.AuthPage),
   },
   {
     path: 'signup',
     title: 'Create account — reading-shelf',
     data: { mode: 'signup' },
-    loadComponent: () =>
-      import('./features/auth/auth-page/auth-page').then((m) => m.AuthPage),
+    loadComponent: () => import('./features/auth/auth-page/auth-page').then((m) => m.AuthPage),
   },
   {
     path: '**',

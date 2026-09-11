@@ -4,12 +4,7 @@
 >
   <div class="flex aspect-2/3 items-center justify-center overflow-hidden rounded bg-stone-100">
     @if (cover(); as coverSrc) {
-      <img
-        [src]="coverSrc"
-        alt=""
-        loading="lazy"
-        class="h-full w-full object-cover"
-      />
+      <img [src]="coverSrc" alt="" loading="lazy" class="h-full w-full object-cover" />
     } @else {
       <span class="px-2 text-center text-xs text-stone-500">No cover</span>
     }

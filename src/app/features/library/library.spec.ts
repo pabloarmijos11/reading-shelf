@@ -38,8 +38,7 @@ describe('Library', () => {
     return element;
   };
 
-  const byLabel = <T extends HTMLElement>(label: string): T =>
-    find<T>(`[aria-label="${label}"]`);
+  const byLabel = <T extends HTMLElement>(label: string): T => find<T>(`[aria-label="${label}"]`);
 
   /** Buttons are found by their visible text, never by their styling classes. */
   const button = (label: string): HTMLButtonElement => {

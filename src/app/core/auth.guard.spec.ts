@@ -26,7 +26,10 @@ describe('authGuard', () => {
   /** Drains the microtask queue *and* a macrotask turn — see the note below. */
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-  function configure(initial: { user?: { uid: string; email: string | null } | null; ready?: boolean }) {
+  function configure(initial: {
+    user?: { uid: string; email: string | null } | null;
+    ready?: boolean;
+  }) {
     auth = fakeAuth(initial);
     TestBed.configureTestingModule({ providers: [provideRouter([]), auth.provider] });
   }

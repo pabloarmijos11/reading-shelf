@@ -1,0 +1,14 @@
+# Line endings are normalised to LF everywhere, including the working copy on
+# Windows. Without this, `core.autocrlf=true` checks these files out with CRLF
+# while Prettier writes LF, so `npm run format:check` would fail on every file
+# on a Windows machine and pass in CI, which runs on Linux. A formatting gate
+# that only fails on one of the two is worse than no gate at all.
+* text=auto eol=lf
+
+# Never rewrite line endings inside a binary file.
+*.ico binary
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff binary
+*.woff2 binary

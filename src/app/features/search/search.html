@@ -30,9 +30,7 @@
   } @else if (q() && books.value().length === 0) {
     <p class="text-sm text-stone-600">No books found for “{{ q() }}”.</p>
   } @else if (books.value().length > 0) {
-    <p class="text-sm text-stone-600">
-      {{ books.value().length }} results for “{{ q() }}”
-    </p>
+    <p class="text-sm text-stone-600">{{ books.value().length }} results for “{{ q() }}”</p>
     <ul class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
       @for (book of books.value(); track book.id) {
         <li class="h-full">

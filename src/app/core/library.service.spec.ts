@@ -294,9 +294,7 @@ describe('LibraryService', () => {
      * loaded yet" — the detail page seeds a `linkedSignal` from this.
      */
     it('should resolve to null when the book is not in the list', async () => {
-      const entry = TestBed.runInInjectionContext(() =>
-        build().entryResource(signal('OL45804W')),
-      );
+      const entry = TestBed.runInInjectionContext(() => build().entryResource(signal('OL45804W')));
       await settled();
 
       expect(entry.status()).toBe('resolved');
@@ -312,9 +310,7 @@ describe('LibraryService', () => {
         updatedAt: stamp(5_000),
       });
 
-      const entry = TestBed.runInInjectionContext(() =>
-        build().entryResource(signal('OL45804W')),
-      );
+      const entry = TestBed.runInInjectionContext(() => build().entryResource(signal('OL45804W')));
       await settled();
 
       expect(entry.value()?.status).toBe('reading');
@@ -377,7 +373,9 @@ describe('LibraryService', () => {
         {
           ...book,
           title: 'T'.repeat(LIMITS.title + 50),
-          authors: Array.from({ length: LIMITS.authors + 5 }, () => 'A'.repeat(LIMITS.authorName + 10)),
+          authors: Array.from({ length: LIMITS.authors + 5 }, () =>
+            'A'.repeat(LIMITS.authorName + 10),
+          ),
         },
         'want',
       );
@@ -481,10 +479,7 @@ describe('LibraryService', () => {
       await service.addToShelf('s1', 'OL2W');
       await service.addToShelf('s1', 'OL2W');
 
-      expect(firestore.store.get('users/user-1/shelves/s1')!['bookIds']).toEqual([
-        'OL1W',
-        'OL2W',
-      ]);
+      expect(firestore.store.get('users/user-1/shelves/s1')!['bookIds']).toEqual(['OL1W', 'OL2W']);
     });
 
     it('should remove a book from the shelf', async () => {

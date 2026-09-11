@@ -44,9 +44,9 @@ describe('Open Library models', () => {
     // Both shapes were observed on real records: "Fantastic Mr Fox" returns a
     // string, "The Hobbit" returns an object.
     it('should read a description given as a plain string', () => {
-      expect(toBookContent({ key: '/works/OL45804W', description: 'A fox story.' }).description).toBe(
-        'A fox story.',
-      );
+      expect(
+        toBookContent({ key: '/works/OL45804W', description: 'A fox story.' }).description,
+      ).toBe('A fox story.');
     });
 
     it('should read a description given as an object', () => {

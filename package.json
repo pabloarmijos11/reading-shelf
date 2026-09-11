@@ -7,6 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "format": "prettier --write \"src/**/*.{ts,html,css}\" \"e2e/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,html,css}\" \"e2e/**/*.ts\"",
     "serve:ssr:reading-shelf": "node dist/reading-shelf/server/server.mjs",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui"
