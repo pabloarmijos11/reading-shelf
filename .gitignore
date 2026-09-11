@@ -39,6 +39,18 @@ testem.log
 /typings
 __screenshots__/
 
+# End-to-end testing
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
+
+# Local secrets — the credentials of the e2e account live here.
+# `.env.e2e.example` is committed as the template; the real file never is.
+.env
+.env.*
+!.env.*.example
+
 # System files
 .DS_Store
 Thumbs.db

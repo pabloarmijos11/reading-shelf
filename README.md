@@ -23,6 +23,20 @@ npm test           # tests unitarios
 npm run e2e        # tests end-to-end
 ```
 
+### Tests end-to-end
+
+Los E2E arrancan el build de producción con SSR y usan un navegador real, así
+que necesitan un paso previo:
+
+```bash
+npx playwright install chromium   # una sola vez
+cp .env.e2e.example .env.e2e      # y completar la contraseña
+```
+
+`.env.e2e` guarda las credenciales de una cuenta de prueba del proyecto de
+Firebase, creada a mano en Authentication → Users. El archivo no se sube al
+repositorio. La suite escribe en esa cuenta y la deja vacía al terminar.
+
 ## Estructura de carpetas
 
 ```

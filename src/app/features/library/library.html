@@ -149,7 +149,7 @@
                 type="text"
                 maxlength="60"
                 [value]="view.shelf.name"
-                [attr.aria-label]="'Rename ' + view.shelf.name"
+                [attr.aria-label]="'New name for ' + view.shelf.name"
                 (keydown.enter)="renameShelf(view.shelf, shelfName.value)"
                 (keydown.escape)="shelfName.value = view.shelf.name; editingShelfId.set(null)"
                 (blur)="renameShelf(view.shelf, shelfName.value)"

@@ -1,0 +1,12 @@
+// The end-to-end specs run under Playwright, not under Angular's test builder,
+// so they need their own settings: Node types instead of Vitest globals, and no
+// Angular compiler options. Vitest never picks these up because
+// `tsconfig.spec.json` only includes spec files under `src`.
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../out-tsc/e2e",
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"]
+}

@@ -36,7 +36,13 @@ npm start                        # servidor de desarrollo
 npm run build                    # build de producción (browser + server)
 npm test -- --watch=false        # tests unitarios (una pasada)
 npm run serve:ssr:reading-shelf  # servir el build SSR ya compilado
+npm run e2e                      # tests E2E (compila y levanta el server solo)
+npm run e2e:ui                   # los mismos, en el runner interactivo
 ```
+
+`npm run e2e` necesita `.env.e2e` con las credenciales de la cuenta de prueba
+(ver `.env.e2e.example`) y hace `npm run build` por su cuenta: tarda unos
+minutos y usa el Firebase real.
 
 ## Estructura de carpetas
 ```
@@ -158,6 +164,93 @@ que traerlo de vuelta.
 - **Los `resource()` de `LibraryService` quedan idle sin sesión** (`params`
   devuelve `undefined` cuando no hay uid), lo que además los apaga solos
   durante el SSR, donde nunca hay usuario.
+
+### Trampas descubiertas (fase 5)
+
+- **Un doble que solo registra llamadas no prueba una ruta.** El mock de
+  `firebase/firestore` en `library.service.spec.ts` es una **base en miniatura**
+  (un `Map` de rutas) en vez de una lista de `vi.fn()`: resuelve paths, ordena
+  de verdad con `orderBy` y `arrayUnion` es idempotente. Solo así el test "no
+  lee los libros de otro usuario" significa algo — con un espía comprobaría
+  los argumentos de `collection()`, no que la ruta aísla los datos, que es
+  justo lo que sustituyó al `where('ownerId','==',uid)`.
+- **`vi.mock` también intercepta un `import()` dinámico**, así que el patrón de
+  carga diferida de Firestore no obliga a nada especial en los tests.
+- **Un test de regresión hay que verificarlo al revés.** El del bug de
+  `value()` se comprobó reintroduciendo el fallo a mano (quitar los
+  `hasValue()` de `book-detail.ts`): caen exactamente los 3 tests nuevos y
+  ninguno de los otros 12. Un test escrito después del arreglo pasa igual con
+  el bug delante si está mal apuntado.
+  - Para que la regresión sea observable se provee un `ErrorHandler` falso que
+    acumula lo que Angular reporta. Un `effect` que lanza **no** rompe el test
+    por sí solo: el error va al `ErrorHandler`, no al runner. Sin ese doble, el
+    único síntoma sería el texto congelado en el DOM.
+- **`CanActivateFn` está tipado como `MaybeAsync<GuardResult>`**, así que
+  `.then(...)` o `.resolves` no compilan aunque el guard sea `async`. Se
+  envuelve la llamada en `Promise.resolve(...)`.
+- **Un guard esperando `ready` deja una promesa que rechaza al destruir el
+  TestBed.** `toObservable` completa sin emitir cuando muere el injector y
+  `firstValueFrom` lanza `EmptyError`, que aparece como *unhandled rejection* y
+  contamina la corrida entera (Vitest avisa de "false positive tests"). El test
+  que deja al guard esperando tiene que resolverlo antes de terminar
+  (`setReady.set(true)` y `await`). En la app no pasa: el injector raíz no
+  muere a mitad de navegación.
+- **Los botones se buscan por su texto visible o su `aria-label`, nunca por su
+  clase de Tailwind.** Un `button.bg-stone-900` ata el test a una decisión
+  visual y se rompe al recolorear.
+- **`entryResource` recibe un `Signal<string>`, no una función** — `() => 'id'`
+  no compila.
+
+### Trampas descubiertas (fase 5, E2E)
+
+Los E2E corren contra el **build SSR real** (`playwright.config.ts` levanta
+`npm run build && npm run serve:ssr:reading-shelf`) y contra el **Firebase
+real**, con una cuenta dedicada cuyas credenciales viven en `.env.e2e`
+(ignorado por git; `.env.e2e.example` es la plantilla). Un solo worker, sin
+paralelismo: todos los specs comparten esa única lista de lectura.
+
+- **Una escritura optimista no está confirmada cuando la UI ya la muestra.** Si
+  el test navega o recarga justo después del clic, la página se destruye y la
+  petición a Firestore se cancela: el cambio se pierde y el fallo aparece
+  *después*, sin relación visible con la causa. Por eso todo clic que escribe
+  va envuelto en `withWrite()`.
+- **No se puede esperar la escritura mirando la red.** Firestore habla por dos
+  conexiones WebChannel de larga duración: `/Listen/channel` (que hace
+  long-polling continuo, y que también usan las *lecturas* con `getDocs`) y
+  `/Write/channel`. Un `waitForResponse` por host resuelve al instante con
+  tráfico ajeno; y filtrando por `/Write/channel` tampoco funciona, porque el
+  canal ya está abierto y no hay un par petición/respuesta que corresponda a
+  una mutación. **La señal buena es la de la propia app**: `saving`/`busy`
+  deshabilitan los controles exactamente mientras la promesa de Firestore está
+  en vuelo, y esa promesa resuelve cuando el servidor confirma.
+- **`/library` muestra sus estados vacíos mientras la sesión se restaura.** Los
+  resources quedan *idle* sin uid, e idle no es "cargando" ni tiene datos, así
+  que la página dice "Nothing here yet." / "You have no shelves yet." antes de
+  saber nada. Un test que mire ahí concluye que la biblioteca está vacía cuando
+  no lo está — fue exactamente el motivo de que la limpieza no borrara nada.
+  `gotoLibrary()` espera primero a que el header ofrezca "My library" (señal de
+  que `auth.ready()` con usuario) y después a un estado terminal.
+- **Un `fill` seguido de un clic puede escribir en el vacío**: si el valor no
+  llegó, `createShelf()` sale sin escribir y **sin mostrar error**. El helper
+  afirma el valor del input antes de pulsar.
+- **El picker de estado vive dentro de la rama del libro cargado**, así que no
+  existe mientras Open Library responde. Hay que esperar el `h1` del libro
+  antes de mirarlo (`gotoBook`/`reloadBook`), o el fallo dice "element not
+  found" y parece que no se guardó el estado.
+- **La limpieza se verifica y se reintenta.** `resetLibrary()` borra lo que ve,
+  recarga y comprueba; hasta tres pasadas. Una escritura perdida dejaría al
+  test siguiente creyendo que parte de cero.
+- **Dos controles no pueden compartir `aria-label`.** El botón *Rename* y el
+  campo de renombrar tenían los dos `Rename <estantería>`: Playwright resolvía
+  al botón e intentaba escribir en él. Se corrigió en la app (el campo ahora es
+  `New name for <estantería>`), no en el test — era un defecto de
+  accesibilidad real.
+- **Ojo con `*/` dentro de un comentario de un `tsconfig.json`.** Escribir el
+  glob `**/*.spec.ts` dentro de `/* … */` cierra el comentario antes de tiempo;
+  Playwright falla con `JSON5: invalid character '*'`, que no sugiere nada de
+  esto. En `e2e/tsconfig.json` los comentarios van con `//`.
+- Los E2E **no** los recoge Vitest: `tsconfig.spec.json` solo incluye
+  `src/**/*.spec.ts`, y `e2e/` queda fuera.
 
 ### Trampas descubiertas (fase 4)
 
