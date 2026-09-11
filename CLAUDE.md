@@ -281,6 +281,30 @@ paralelismo: todos los specs comparten esa única lista de lectura.
   mismo commit pasa en CI (Linux) y falla en local. Se ataja con
   `.gitattributes` (`* text=auto eol=lf`), que fuerza LF también al hacer
   checkout. Un gate que solo miente en un sitio es peor que no tener gate.
+- **Un `vi.mock` dentro de un solo spec no es fiable en este proyecto, y el
+  síntoma es "pasa en Windows, falla en Linux".** El builder de Angular
+  empaqueta **todos los specs juntos** y saca lo común a chunks compartidos. A
+  `firebase/auth` se llega desde `firebase.ts`, que `firestore-loader.ts`
+  importa por `FIREBASE_APP`, así que specs que no hablan de autenticación
+  arrastran igualmente el módulo real. Quien gane el chunk decide, y el
+  troceado no es idéntico entre plataformas: en CI cayeron los 7 tests de
+  `auth.service.spec.ts` con `getModularInstance(...).onAuthStateChanged is not
+  a function`, o sea el SDK de verdad recibiendo el doble del token.
+  - **Regla**: el doble de `firebase/auth` se registra para toda la suite en
+    `src/test-setup.ts`, enganchado con `setupFiles` en `angular.json`. Así
+    ningún test unitario puede alcanzar el SDK real, corra en el orden que
+    corra.
+  - **El estado del doble se lee del módulo mockeado, no del archivo que lo
+    define.** Exportar el estado desde `firebase-auth.fake.ts` parece lo obvio
+    y falla: el bundler puede dar una copia al setup y otra al spec, y entonces
+    el test vigila un array en el que nadie escribe (`listeners[0] is not a
+    function`). `fakeAuthState()` hace `await import('firebase/auth')`, que por
+    definición es la misma instancia que usa el servicio.
+  - Cómo se localizó: correr **solo ese archivo** en CI (`--include`). Pasó
+    7/7. Que un spec pase aislado y falle acompañado apunta al empaquetado o al
+    orden, nunca a la lógica del test.
+  - `ng test` usa `--include` y `--reporters`; un filtro posicional al estilo
+    de Vitest hace que el CLI rechace hasta `--watch`.
 - **El alcance de Prettier son `src/` y `e2e/`**, no el repositorio entero:
   `CLAUDE.md` y `AGENTS.md` están escritos a mano y `angular.json` y los
   `tsconfig.*` los regenera el CLI, que volvería a ensuciarlos.

@@ -1,47 +1,22 @@
 import { TestBed } from '@angular/core/testing';
-import { vi } from 'vitest';
 
 import { AuthService } from './auth.service';
 import { FIREBASE_AUTH } from './firebase';
-
-type AuthCallback = (user: { uid: string; email: string | null } | null) => void;
-
-/**
- * `vi.mock` is hoisted above every import, so its factory cannot close over
- * ordinary top-level variables — they are not initialised yet when it runs.
- * `vi.hoisted` lifts these alongside it, which is what makes them shareable
- * between the mock and the tests.
- */
-const mocked = vi.hoisted(() => ({
-  listeners: [] as AuthCallback[],
-  unsubscribed: 0,
-}));
+import { FirebaseAuthState, resetFakeAuth } from './firebase-auth.fake';
 
 /**
- * The mock is written out in full rather than spreading `importOriginal()`:
- * loading the real `firebase/auth` here deadlocks against `firebase.ts`, which
- * imports it too, and fails with "Cannot access __vi_import_1__ before
- * initialization". Only the handful of functions this app calls are needed.
+ * The `firebase/auth` double is registered for the whole suite in
+ * `src/test-setup.ts`, not here. `firebase-auth.fake.ts` explains why a mock
+ * local to this file could not be trusted: the bundler decides which spec ends
+ * up owning the module, and it decided differently on Windows and on Linux.
  */
-vi.mock('firebase/auth', () => ({
-  getAuth: () => ({}),
-  onAuthStateChanged: (_auth: unknown, callback: AuthCallback) => {
-    mocked.listeners.push(callback);
-    return () => {
-      mocked.unsubscribed += 1;
-    };
-  },
-  signInWithEmailAndPassword: vi.fn().mockResolvedValue({}),
-  createUserWithEmailAndPassword: vi.fn().mockResolvedValue({}),
-  signOut: vi.fn().mockResolvedValue(undefined),
-}));
-
-const listeners = mocked.listeners;
-
 describe('AuthService', () => {
-  beforeEach(() => {
-    listeners.length = 0;
-    mocked.unsubscribed = 0;
+  let auth: FirebaseAuthState;
+  let listeners: FirebaseAuthState['listeners'];
+
+  beforeEach(async () => {
+    auth = await resetFakeAuth();
+    listeners = auth.listeners;
 
     TestBed.configureTestingModule({
       // The SDK is mocked, so the token only needs to be present.
@@ -96,7 +71,7 @@ describe('AuthService', () => {
     TestBed.inject(AuthService);
     TestBed.resetTestingModule();
 
-    expect(mocked.unsubscribed).toBe(1);
+    expect(auth.unsubscribed).toBe(1);
   });
 
   describe('describeError', () => {
