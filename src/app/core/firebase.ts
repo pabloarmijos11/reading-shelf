@@ -5,7 +5,15 @@ import {
   makeEnvironmentProviders,
 } from '@angular/core';
 import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
-import { Auth, getAuth } from 'firebase/auth';
+import {
+  Auth,
+  User,
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
 
 /**
  * These values are not secrets. The web `apiKey` identifies the project and
@@ -23,6 +31,30 @@ const firebaseConfig = {
 
 export const FIREBASE_APP = new InjectionToken<FirebaseApp>('FIREBASE_APP');
 export const FIREBASE_AUTH = new InjectionToken<Auth>('FIREBASE_AUTH');
+
+/**
+ * The slice of the Firebase Auth API the app actually calls.
+ *
+ * `AuthService` injects this instead of importing the functions from
+ * `firebase/auth` directly, and the difference is not cosmetic. A module import
+ * cannot be replaced with any confidence in a test here: the Angular builder
+ * bundles every spec together and decides for itself which chunk owns a shared
+ * module, so a `vi.mock` in one spec worked on Windows and failed on Linux,
+ * with the real SDK receiving a test double and blowing up. A token has no such
+ * ambiguity — a test provides another value and that is the end of it.
+ *
+ * It also matches how the rest of Firebase already enters this app: through
+ * `FIREBASE_APP`, `FIREBASE_AUTH` and `FirestoreLoader`. Auth was the one
+ * exception, and the exception is what broke CI.
+ */
+export interface AuthSdk {
+  onAuthStateChanged(auth: Auth, next: (user: User | null) => void): () => void;
+  createUserWithEmailAndPassword(auth: Auth, email: string, password: string): Promise<unknown>;
+  signInWithEmailAndPassword(auth: Auth, email: string, password: string): Promise<unknown>;
+  signOut(auth: Auth): Promise<void>;
+}
+
+export const AUTH_SDK = new InjectionToken<AuthSdk>('AUTH_SDK');
 
 /**
  * Firebase is wired up through injection tokens instead of `@angular/fire`,
@@ -48,6 +80,15 @@ export function provideFirebase(): EnvironmentProviders {
     {
       provide: FIREBASE_AUTH,
       useFactory: () => getAuth(inject(FIREBASE_APP)),
+    },
+    {
+      provide: AUTH_SDK,
+      useValue: {
+        onAuthStateChanged,
+        createUserWithEmailAndPassword,
+        signInWithEmailAndPassword,
+        signOut,
+      } satisfies AuthSdk,
     },
   ]);
 }

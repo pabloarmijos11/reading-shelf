@@ -1,27 +1,20 @@
 import { TestBed } from '@angular/core/testing';
 
 import { AuthService } from './auth.service';
-import { FIREBASE_AUTH } from './firebase';
-import { FirebaseAuthState, resetFakeAuth } from './firebase-auth.fake';
+import { FakeAuthSdkHandle, fakeAuthSdk } from './auth-sdk.fake';
 
 /**
- * The `firebase/auth` double is registered for the whole suite in
- * `src/test-setup.ts`, not here. `firebase-auth.fake.ts` explains why a mock
- * local to this file could not be trusted: the bundler decides which spec ends
- * up owning the module, and it decided differently on Windows and on Linux.
+ * The SDK arrives through `AUTH_SDK`, so these tests just provide another
+ * value for it — no module mocking anywhere. That is the whole reason the
+ * token exists: a `vi.mock` of `firebase/auth` competed with how the builder
+ * chunks the bundled specs, and passed on Windows while failing on Linux.
  */
 describe('AuthService', () => {
-  let auth: FirebaseAuthState;
-  let listeners: FirebaseAuthState['listeners'];
+  let sdk: FakeAuthSdkHandle;
 
-  beforeEach(async () => {
-    auth = await resetFakeAuth();
-    listeners = auth.listeners;
-
-    TestBed.configureTestingModule({
-      // The SDK is mocked, so the token only needs to be present.
-      providers: [{ provide: FIREBASE_AUTH, useValue: {} }],
-    });
+  beforeEach(() => {
+    sdk = fakeAuthSdk();
+    TestBed.configureTestingModule({ providers: sdk.providers });
   });
 
   /**
@@ -39,7 +32,7 @@ describe('AuthService', () => {
   it('should expose the user once Firebase reports one', () => {
     const service = TestBed.inject(AuthService);
 
-    listeners[0]({ uid: 'u1', email: 'pablo@example.com' });
+    sdk.report({ uid: 'u1', email: 'pablo@example.com' });
 
     expect(service.ready()).toBe(true);
     expect(service.isSignedIn()).toBe(true);
@@ -50,7 +43,7 @@ describe('AuthService', () => {
   it('should become ready even when nobody is signed in', () => {
     const service = TestBed.inject(AuthService);
 
-    listeners[0](null);
+    sdk.report(null);
 
     expect(service.ready()).toBe(true);
     expect(service.isSignedIn()).toBe(false);
@@ -60,8 +53,8 @@ describe('AuthService', () => {
   it('should clear the user on sign-out', () => {
     const service = TestBed.inject(AuthService);
 
-    listeners[0]({ uid: 'u1', email: 'pablo@example.com' });
-    listeners[0](null);
+    sdk.report({ uid: 'u1', email: 'pablo@example.com' });
+    sdk.report(null);
 
     expect(service.isSignedIn()).toBe(false);
     expect(service.email()).toBeNull();
@@ -71,7 +64,7 @@ describe('AuthService', () => {
     TestBed.inject(AuthService);
     TestBed.resetTestingModule();
 
-    expect(auth.unsubscribed).toBe(1);
+    expect(sdk.unsubscribed()).toBe(1);
   });
 
   describe('describeError', () => {
