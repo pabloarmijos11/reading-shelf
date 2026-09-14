@@ -61,6 +61,8 @@ src/app/
   shared/
     book-card/
 e2e/                          # specs de Playwright
+api/index.mjs                 # función serverless de Vercel: reexporta reqHandler
+vercel.json                   # routes, env del runtime y empaquetado de la función
 .github/workflows/ci.yml
 ```
 
@@ -316,6 +318,57 @@ paralelismo: todos los specs comparten esa única lista de lectura.
 - **El alcance de Prettier son `src/` y `e2e/`**, no el repositorio entero:
   `CLAUDE.md` y `AGENTS.md` están escritos a mano y `angular.json` y los
   `tsconfig.*` los regenera el CLI, que volvería a ensuciarlos.
+
+### Trampas descubiertas (fase 7, deploy en Vercel)
+
+Las cuatro primeras dan **HTTP 200 sin un solo error visible**. Es el mismo
+patrón de `allowedHosts` de la fase 2, repetido cuatro veces: la única forma de
+detectarlas es mirar el `<body>`, nunca el status code.
+
+- **Un header que Angular ni siquiera usa apaga el SSR entero.**
+  `sanitizeRequestHeaders` pone `deoptToCSR = true` ante **cualquier** cabecera
+  `x-forwarded-*` que no esté declarada como confiable, y por defecto solo
+  confía en `x-forwarded-host` y `x-forwarded-proto`. Vercel añade
+  `x-forwarded-for`, que no interviene en construir la URL, y con eso basta: el
+  motor prefiere no renderizar antes que renderizar detrás de un proxy no
+  declarado. El único rastro es un `console.warn` que **parece cosmético y no lo
+  es** — se descartó como ruido antes de leer las tres líneas siguientes.
+  - Se arregla con `NG_TRUST_PROXY_HEADERS`, declarada en `vercel.json`.
+  - Reproducible en local: basta añadir `-H "x-forwarded-for: 1.2.3.4"` a un
+    `curl` contra `serve:ssr`. Sin ese header las páginas renderizan, con él
+    caen todas a 5038 bytes, el tamaño exacto de `index.csr.html`.
+- **Vercel no detecta `outputMode: "server"`.** Reconoce el proyecto como
+  Angular y publica `dist/reading-shelf/browser` como sitio estático, sin
+  construir ninguna función: `/books/:id` daba 404 porque no existe ese archivo.
+  Hace falta escribir la función a mano (`api/index.mjs`), que solo reexporta el
+  `reqHandler` de `server.ts` porque ya tiene la forma `(req, res)` que Vercel
+  espera. Sin `includeFiles` en `vercel.json`, el deploy sale verde y revienta
+  en la primera petición.
+- **`rewrites` nunca se adelanta al sistema de archivos.** La raíz `/` se
+  resolvía contra `index.csr.html` y el rewrite no llegaba a aplicarse, así que
+  la home salía vacía mientras `/books/:id` ya renderizaba. Hay que usar
+  `routes`, la API de bajo nivel, y colocar la regla **antes** de
+  `{ "handle": "filesystem" }`. `routes` es excluyente con `rewrites`,
+  `redirects`, `headers`, `cleanUrls` y `trailingSlash`.
+- **La caché del CDN miente al verificar.** Una respuesta vieja se sirve con
+  `X-Vercel-Cache: HIT` y un `Age` de horas, así que un despliegue correcto
+  parece no haber ocurrido. Al comprobar hay que añadir un query param aleatorio
+  (`?cb=$RANDOM`). Cómo distinguir quién respondió: el CDN devuelve un **ETag
+  fuerte idéntico al del archivo** (`/` y `/index.csr.html` compartían el
+  mismo), y la función devuelve `x-vercel-id` con la **región repetida**
+  (`iad1::iad1::`) y sin ETag fuerte.
+- **La configuración vive en `vercel.json`, no en el dashboard.** Las dos
+  variables (`NG_ALLOWED_HOSTS`, `NG_TRUST_PROXY_HEADERS`) van en `env` allí:
+  quedan versionadas y se pueden explicar en un commit. Se perdió bastante rato
+  por no poder verificar qué había en un formulario web.
+- **El despliegue está protegido con login** (Vercel Authentication, *All
+  Deployments*). Es una decisión deliberada: es un proyecto de práctica y no se
+  quiso publicar. Para verificarlo desde fuera se usa **Protection Bypass for
+  Automation**, un secreto de 32 caracteres que se manda en la cabecera
+  `x-vercel-protection-bypass`. **Consecuencia que hay que tener presente: con
+  esa protección puesta, ningún crawler ve el SSR.** El día que el objetivo sea
+  el SEO real, hay que pasar la protección a *Standard Protection*, que deja
+  producción pública y mantiene las previews cerradas.
 
 ### Trampas descubiertas (fase 4)
 
