@@ -5,7 +5,28 @@ import {
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
 import express from 'express';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+
+/**
+ * TEMPORARY — see the `/__diag` handler below. Angular reports the reason it
+ * refuses to server-render through `console.error` (that is how the host check
+ * announces itself), and a serverless function's stdout is not reachable from
+ * here, so the messages are kept in memory and served back over HTTP.
+ * Installed before the engine is constructed so nothing is missed.
+ */
+const capturedLogs: string[] = [];
+
+for (const level of ['error', 'warn'] as const) {
+  const original = console[level].bind(console);
+  console[level] = (...args: unknown[]) => {
+    capturedLogs.push(
+      `[${level}] ` +
+        args.map((a) => (a instanceof Error ? (a.stack ?? a.message) : String(a))).join(' '),
+    );
+    original(...args);
+  };
+}
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
@@ -49,6 +70,9 @@ const angularApp = new AngularNodeAppEngine({ allowedHosts });
  * the function actually receives. Remove once the cause is known.
  */
 app.get('/__diag', (req, res) => {
+  const serverDir = import.meta.dirname;
+  const list = (dir: string) => (existsSync(dir) ? readdirSync(dir).slice(0, 40) : null);
+
   res.json({
     raw: process.env['NG_ALLOWED_HOSTS'] ?? null,
     parsed: allowedHosts,
@@ -56,10 +80,16 @@ app.get('/__diag', (req, res) => {
       host: req.headers.host ?? null,
       'x-forwarded-host': req.headers['x-forwarded-host'] ?? null,
       'x-forwarded-proto': req.headers['x-forwarded-proto'] ?? null,
-      'x-forwarded-port': req.headers['x-forwarded-port'] ?? null,
     },
     url: req.url,
-    originalUrl: req.originalUrl,
+    node: process.version,
+    cwd: process.cwd(),
+    serverDir,
+    browserDistFolder,
+    browserExists: existsSync(browserDistFolder),
+    serverFiles: list(serverDir),
+    browserFiles: list(browserDistFolder),
+    logs: capturedLogs,
   });
 });
 
@@ -80,8 +110,20 @@ app.use(
 app.use((req, res, next) => {
   angularApp
     .handle(req)
-    .then((response) => (response ? writeResponseToNodeResponse(response, res) : next()))
-    .catch(next);
+    .then((response) => {
+      // TEMPORARY — records what the engine decided, so `/__diag` can report it.
+      capturedLogs.push(
+        `[handle] ${req.url} -> ${response ? `${response.status} ${response.headers.get('content-type')}` : 'null (passed through)'}`,
+      );
+
+      return response ? writeResponseToNodeResponse(response, res) : next();
+    })
+    .catch((error: unknown) => {
+      capturedLogs.push(
+        `[handle:throw] ${req.url} -> ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`,
+      );
+      next(error);
+    });
 });
 
 /**
