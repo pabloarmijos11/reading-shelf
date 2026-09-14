@@ -8,7 +8,11 @@
       "includeFiles": "dist/reading-shelf/**"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "routes": [
+    { "src": "/", "dest": "/api" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/api" }
+  ],
   "env": {
     "NG_ALLOWED_HOSTS": "*.vercel.app",
     "NG_TRUST_PROXY_HEADERS": "x-forwarded-host,x-forwarded-proto,x-forwarded-for,x-forwarded-port,x-forwarded-prefix"
