@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
   "buildCommand": "npm run build",
   "outputDirectory": "dist/reading-shelf/browser",
   "functions": {
@@ -7,5 +8,9 @@
       "includeFiles": "dist/reading-shelf/**"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "env": {
+    "NG_ALLOWED_HOSTS": "*.vercel.app",
+    "NG_TRUST_PROXY_HEADERS": "x-forwarded-host,x-forwarded-proto,x-forwarded-for,x-forwarded-port,x-forwarded-prefix"
+  }
 }
