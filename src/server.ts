@@ -42,6 +42,28 @@ const angularApp = new AngularNodeAppEngine({ allowedHosts });
  */
 
 /**
+ * TEMPORARY — diagnosing why Vercel serves the CSR shell instead of rendering.
+ * Reproduced locally: with `NG_ALLOWED_HOSTS='*.vercel.app'` and Vercel's own
+ * headers this same build renders (`ng-server-context="ssr"`), so the code is
+ * fine and something about the deployed environment is not. This reports what
+ * the function actually receives. Remove once the cause is known.
+ */
+app.get('/__diag', (req, res) => {
+  res.json({
+    raw: process.env['NG_ALLOWED_HOSTS'] ?? null,
+    parsed: allowedHosts,
+    headers: {
+      host: req.headers.host ?? null,
+      'x-forwarded-host': req.headers['x-forwarded-host'] ?? null,
+      'x-forwarded-proto': req.headers['x-forwarded-proto'] ?? null,
+      'x-forwarded-port': req.headers['x-forwarded-port'] ?? null,
+    },
+    url: req.url,
+    originalUrl: req.originalUrl,
+  });
+});
+
+/**
  * Serve static files from /browser
  */
 app.use(
