@@ -101,7 +101,10 @@ e2e/                          # specs de Playwright
   por campo `ownerId`** — a diferencia de `expense-tracker`. Ver "Firestore:
   modelo y reglas" más abajo.
 - No usar `@angular/fire`; inyección propia de `Firestore`/`Auth` como
-  tokens, igual que en los otros proyectos personales.
+  tokens, igual que en los otros proyectos personales. **Las funciones del SDK
+  de Auth también entran por token** (`AUTH_SDK`), no como import directo: un
+  módulo importado no se puede sustituir con garantías en los tests de este
+  proyecto (ver "Trampas descubiertas (fase 6)").
 - Las páginas públicas (`/`, `/books/:id`) deben renderizarse en servidor de
   verdad — al terminar la fase 2, verificar con `curl` o "ver código fuente"
   que el HTML servido trae el contenido, no solo el shell de Angular.
@@ -281,6 +284,35 @@ paralelismo: todos los specs comparten esa única lista de lectura.
   mismo commit pasa en CI (Linux) y falla en local. Se ataja con
   `.gitattributes` (`* text=auto eol=lf`), que fuerza LF también al hacer
   checkout. Un gate que solo miente en un sitio es peor que no tener gate.
+- **Un `vi.mock` dentro de un solo spec no es fiable en este proyecto, y el
+  síntoma es "pasa en Windows, falla en Linux".** El builder de Angular
+  empaqueta **todos los specs juntos** y saca lo común a chunks compartidos. A
+  `firebase/auth` se llega desde `firebase.ts`, que `firestore-loader.ts`
+  importa por `FIREBASE_APP`, así que specs que no hablan de autenticación
+  arrastran igualmente el módulo real. Quien gane el chunk decide, y el
+  troceado no es idéntico entre plataformas: en CI cayeron los 7 tests de
+  `auth.service.spec.ts` con `getModularInstance(...).onAuthStateChanged is not
+  a function`, o sea el SDK de verdad recibiendo el doble del token.
+  - **Regla: lo que hay que sustituir en un test se inyecta, no se importa.**
+    `AuthService` recibe el SDK por el token `AUTH_SDK` (definido en
+    `firebase.ts` junto a `FIREBASE_APP` y `FIREBASE_AUTH`), y su spec provee
+    otro valor con `fakeAuthSdk()`. Sin `vi.mock` de por medio no hay nada que
+    el empaquetado pueda decidir. Auth era la única parte de Firebase que
+    entraba por import directo — el resto ya usaba tokens o `FirestoreLoader`—,
+    y justo esa excepción fue la que rompió el CI.
+  - **Se intentó antes un mock global** (`setupFiles` en `angular.json`) y **no
+    bastó**: el mock sí se aplicaba, pero el bundler daba una copia del archivo
+    del doble al setup y otra al spec, así que el test vigilaba un array en el
+    que nadie escribía (`listeners[0] is not a function`). Cualquier solución
+    que dependa de la identidad de un módulo tiene ese techo.
+  - Cómo se localizó: correr **solo ese archivo** en CI (`--include`). Pasó
+    7/7. Que un spec pase aislado y falle acompañado apunta al empaquetado o al
+    orden, nunca a la lógica del test.
+  - Los dobles no se confunden: `auth.fake.ts` sustituye a `AuthService` para
+    los tests de componentes; `auth-sdk.fake.ts` sustituye al SDK que hay
+    debajo, de modo que en los tests del propio servicio corre su código real.
+  - `ng test` usa `--include` y `--reporters`; un filtro posicional al estilo
+    de Vitest hace que el CLI rechace hasta `--watch`.
 - **El alcance de Prettier son `src/` y `e2e/`**, no el repositorio entero:
   `CLAUDE.md` y `AGENTS.md` están escritos a mano y `angular.json` y los
   `tsconfig.*` los regenera el CLI, que volvería a ensuciarlos.

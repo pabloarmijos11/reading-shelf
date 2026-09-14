@@ -1,15 +1,9 @@
 import { DestroyRef, Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import {
-  User,
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-} from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
 
-import { FIREBASE_AUTH } from './firebase';
+import { AUTH_SDK, FIREBASE_AUTH } from './firebase';
 
 /** Messages shown to the user, keyed by Firebase error code. */
 const AUTH_ERRORS: Record<string, string> = {
@@ -24,6 +18,9 @@ const AUTH_ERRORS: Record<string, string> = {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly auth = inject(FIREBASE_AUTH);
+  // The SDK arrives as a dependency rather than as a module import; see the
+  // note on `AuthSdk` in firebase.ts for why that distinction matters here.
+  private readonly sdk = inject(AUTH_SDK);
   private readonly destroyRef = inject(DestroyRef);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -54,7 +51,7 @@ export class AuthService {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(this.auth, (user) => {
+    const unsubscribe = this.sdk.onAuthStateChanged(this.auth, (user) => {
       this.currentUser.set(user);
       this.resolved.set(true);
     });
@@ -63,15 +60,15 @@ export class AuthService {
   }
 
   async signUp(email: string, password: string): Promise<void> {
-    await createUserWithEmailAndPassword(this.auth, email, password);
+    await this.sdk.createUserWithEmailAndPassword(this.auth, email, password);
   }
 
   async signIn(email: string, password: string): Promise<void> {
-    await signInWithEmailAndPassword(this.auth, email, password);
+    await this.sdk.signInWithEmailAndPassword(this.auth, email, password);
   }
 
   async signOut(): Promise<void> {
-    await signOut(this.auth);
+    await this.sdk.signOut(this.auth);
   }
 
   /** Turns a thrown Firebase error into something worth showing a person. */

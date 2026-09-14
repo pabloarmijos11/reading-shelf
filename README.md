@@ -37,6 +37,21 @@ cp .env.e2e.example .env.e2e      # y completar la contraseña
 Firebase, creada a mano en Authentication → Users. El archivo no se sube al
 repositorio. La suite escribe en esa cuenta y la deja vacía al terminar.
 
+## Integración continua
+
+Cada pull request tiene que pasar formato, tests unitarios y un build de
+producción. Los tests end-to-end corren aparte, solo cuando el cambio ya está
+en `main`: usan un navegador real contra el Firebase real, así que dos
+corridas a la vez se pelearían por la misma cuenta de prueba.
+
+```bash
+npm run format:check   # el mismo check que corre el CI
+npm test -- --watch=false
+npm run build
+```
+
+Si los tres pasan en local, el job de cada PR también pasa.
+
 ## Estructura de carpetas
 
 ```
