@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/reading-shelf/browser",
+  "functions": {
+    "api/index.mjs": {
+      "includeFiles": "dist/reading-shelf/**"
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+}

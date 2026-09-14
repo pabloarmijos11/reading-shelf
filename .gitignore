@@ -51,6 +51,10 @@ __screenshots__/
 .env.*
 !.env.*.example
 
+# Vercel — `vercel link` writes the project and org ids here. They are not
+# secret, but they are per-machine state, not part of the project.
+.vercel
+
 # System files
 .DS_Store
 Thumbs.db
