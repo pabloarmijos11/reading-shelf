@@ -82,6 +82,25 @@ vercel.json                   # routes, env del runtime y empaquetado de la func
 7. Deploy — variables de entorno/secrets de Firebase en Vercel, verificación
    final de SSR en producción
 
+## Despliegue
+
+Producción vive en Vercel (cuenta **DINHONETA**, plan Hobby), y **el despliegue
+lo lanza el workflow, no Vercel**: `git.deploymentEnabled` está en `false` en
+`vercel.json`. La integración de Git desplegaba en cada push sin mirar el CI, de
+modo que una suite en rojo llegaba igual a producción; el job `deploy` con
+`needs: [e2e]` es lo que convierte los tests en una puerta real.
+
+El job hace `vercel pull` → `vercel build` → `vercel deploy --prebuilt`, así que
+el build ocurre en Actions —un fallo de build falla ahí, con el log junto al de
+los tests— y Vercel solo publica el resultado (6 s en vez de ~30 s). El último
+paso **verifica que lo desplegado está renderizado en servidor**, porque un SSR
+roto responde 200 con el shell vacío y el status code no distingue nada.
+
+Secrets del repositorio: `VERCEL_TOKEN` (credencial real, caduca),
+`VERCEL_AUTOMATION_BYPASS_SECRET` (para leer el despliegue protegido),
+`E2E_EMAIL` y `E2E_PASSWORD`. Los ids de proyecto y organización van en claro
+dentro del workflow: nombran el proyecto pero no dan acceso sin el token.
+
 ## Skills a consultar antes de tocar cada área
 - SSR / estrategias de renderizado → `angular-developer`
   (`references/rendering-strategies.md`)
