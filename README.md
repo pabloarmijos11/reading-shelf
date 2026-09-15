@@ -52,6 +52,22 @@ npm run build
 
 Si los tres pasan en local, el job de cada PR también pasa.
 
+## Despliegue
+
+La app se despliega en Vercel, pero **no en cada push**: el despliegue es el
+último job del workflow y solo corre si los tests end-to-end han pasado. La
+integración automática de Vercel está desactivada a propósito
+(`git.deploymentEnabled: false`), porque desplegaba en paralelo al CI sin
+mirarlo — y entonces el CI no era una puerta, solo un informe.
+
+El build se hace en GitHub Actions y se sube ya construido, así que el
+despliegue en sí tarda unos segundos. El último paso pide la página publicada y
+falla si no viene renderizada en servidor: una app SSR rota responde igual con
+HTTP 200, así que comprobar el código de estado no serviría de nada.
+
+El despliegue está protegido con login de Vercel, por ser un proyecto de
+práctica que no se quiso publicar.
+
 ## Estructura de carpetas
 
 ```
@@ -60,8 +76,19 @@ src/app/
   features/     search, book-detail, library, auth
   shared/       componentes reutilizables (ej. book-card)
 e2e/            tests de Playwright
+api/            la función que ejecuta el SSR en Vercel
 ```
 
 ## Estado
 
-Proyecto en construcción.
+Terminado. Las siete fases previstas están completas: búsqueda y ficha de libro
+renderizadas en servidor, lista de lectura y estanterías por usuario, 101 tests
+unitarios, 18 end-to-end, integración continua y despliegue automatizado.
+
+Lo que quedó sin hacer, a sabiendas:
+
+- Quitar un libro de la lista no lo saca de las estanterías donde estuviera.
+- El estado de lectura no se sincroniza entre pestañas: cada página consulta al
+  montarse.
+- Open Library puede tardar demasiado durante el renderizado en servidor; la
+  página se sirve igual, pero en estado de carga.
