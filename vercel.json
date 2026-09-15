@@ -16,5 +16,8 @@
   "env": {
     "NG_ALLOWED_HOSTS": "*.vercel.app",
     "NG_TRUST_PROXY_HEADERS": "x-forwarded-host,x-forwarded-proto,x-forwarded-for,x-forwarded-port,x-forwarded-prefix"
+  },
+  "git": {
+    "deploymentEnabled": false
   }
 }

@@ -89,3 +89,73 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # Production deploys are launched from here, not by Vercel's git integration,
+  # which is disabled in vercel.json. That integration builds on every push
+  # without looking at this workflow, so a red suite would reach production
+  # anyway — `needs: e2e` is what turns the tests into an actual gate.
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    needs: e2e
+    if: github.event_name == 'push'
+
+    # Identifiers, not credentials: they name the project but grant nothing
+    # without the token. Keeping them in the file means the workflow can be read
+    # and reproduced without hunting through repository settings.
+    env:
+      VERCEL_ORG_ID: team_wqXxZSLfpzODglWBivSqA6cA
+      VERCEL_PROJECT_ID: prj_MKdmlU5TJvkSuJPOtttp5RgEESvT
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      # The three-step dance Vercel expects in CI. `pull` brings down the
+      # project settings and environment variables, `build` produces the
+      # deployment locally, and `deploy --prebuilt` uploads that output instead
+      # of asking Vercel to build it again. Building here is what lets a failed
+      # build fail this job, where the log is next to the tests.
+      - name: Pull the project settings
+        run: npx vercel@59 pull --yes --environment=production --token=$VERCEL_TOKEN
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: npx vercel@59 build --prod --token=$VERCEL_TOKEN
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy
+        id: deploy
+        run: |
+          url=$(npx vercel@59 deploy --prebuilt --prod --token=$VERCEL_TOKEN)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed to $url" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      # The deployment is served behind Vercel's login, so this asks for it with
+      # the automation bypass secret. Checking for `ng-server-context` is the
+      # only honest check: a broken SSR still answers 200 with an empty shell,
+      # which is exactly how this went unnoticed for hours. The random query
+      # param avoids reading a cached response from a previous deploy.
+      - name: Verify the deployment is server-rendered
+        run: |
+          url="${{ steps.deploy.outputs.url }}?cb=$RANDOM$RANDOM"
+          body=$(curl -sS -H "x-vercel-protection-bypass: $BYPASS" -L "$url" --max-time 60)
+          if grep -q 'ng-server-context="ssr"' <<<"$body"; then
+            echo "Server-rendered: $(wc -c <<<"$body") bytes"
+          else
+            echo "::error::No ng-server-context in the response — the app fell back to client-side rendering."
+            printf '%s' "$body" | head -c 600
+            exit 1
+          fi
+        env:
+          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
