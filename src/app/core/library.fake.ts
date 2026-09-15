@@ -75,6 +75,33 @@ export function fakeLibrary(initial?: {
     reload: () => true,
   });
 
+  /**
+   * Applies a write to the fake's own state, the way the real listener does.
+   *
+   * Since the reads became `onSnapshot`, a successful write comes back through
+   * the resource on its own — Firestore emits from its local cache before the
+   * server confirms. A double that only recorded the call would let a component
+   * apply the same change twice and still pass, which is exactly the bug that
+   * reached CI once (two shelves named the same after one click).
+   *
+   * Nothing is applied when the write is set to fail: Firestore rolls its local
+   * change back too.
+   */
+  const applied = <T, R>(
+    state: WritableSignal<T>,
+    change: (current: T) => T,
+    result: R,
+  ): Promise<R> => {
+    if (pendingError) {
+      const error = pendingError;
+      pendingError = null;
+      return Promise.reject(error);
+    }
+
+    state.update(change);
+    return Promise.resolve(result);
+  };
+
   const double = {
     entryResource: () => asResource(entry),
     entriesResource: () => asResource(entries),
@@ -82,31 +109,79 @@ export function fakeLibrary(initial?: {
 
     setStatus: (book: BookSummary, status: ReadingStatus) => {
       calls.setStatus.push({ bookId: book.id, status });
-      return settle(undefined);
+      return applied(
+        entries,
+        (list) =>
+          list.some((item) => item.id === book.id)
+            ? list.map((item) => (item.id === book.id ? { ...item, status } : item))
+            : [
+                {
+                  id: book.id,
+                  status,
+                  title: book.title,
+                  authors: book.authors,
+                  coverId: book.coverId,
+                  updatedAt: Date.now(),
+                },
+                ...list,
+              ],
+        undefined,
+      );
     },
     removeEntry: (workId: string) => {
       calls.removeEntry.push(workId);
-      return settle(undefined);
+      return applied(entries, (list) => list.filter((item) => item.id !== workId), undefined);
     },
     createShelf: (name: string) => {
       calls.createShelf.push(name);
-      return settle('shelf-1');
+      const id = `shelf-${shelves().length + 1}`;
+      return applied(
+        shelves,
+        (list) => [
+          ...list,
+          { id, name, bookIds: [], createdAt: Date.now(), updatedAt: Date.now() },
+        ],
+        id,
+      );
     },
     renameShelf: (shelfId: string, name: string) => {
       calls.renameShelf.push({ shelfId, name });
-      return settle(undefined);
+      return applied(
+        shelves,
+        (list) => list.map((item) => (item.id === shelfId ? { ...item, name } : item)),
+        undefined,
+      );
     },
     deleteShelf: (shelfId: string) => {
       calls.deleteShelf.push(shelfId);
-      return settle(undefined);
+      return applied(shelves, (list) => list.filter((item) => item.id !== shelfId), undefined);
     },
+    // `arrayUnion`/`arrayRemove` are idempotent in Firestore, and so are these.
     addToShelf: (shelfId: string, workId: string) => {
       calls.addToShelf.push({ shelfId, workId });
-      return settle(undefined);
+      return applied(
+        shelves,
+        (list) =>
+          list.map((item) =>
+            item.id === shelfId && !item.bookIds.includes(workId)
+              ? { ...item, bookIds: [...item.bookIds, workId] }
+              : item,
+          ),
+        undefined,
+      );
     },
     removeFromShelf: (shelfId: string, workId: string) => {
       calls.removeFromShelf.push({ shelfId, workId });
-      return settle(undefined);
+      return applied(
+        shelves,
+        (list) =>
+          list.map((item) =>
+            item.id === shelfId
+              ? { ...item, bookIds: item.bookIds.filter((id) => id !== workId) }
+              : item,
+          ),
+        undefined,
+      );
     },
   };
 

@@ -168,15 +168,12 @@ export class Library {
     this.error.set(null);
 
     try {
-      // Not optimistic: the id comes from the service, and inventing a
-      // placeholder one would make the rename and delete buttons point at a
-      // shelf that does not exist yet.
-      const id = await this.library.createShelf(trimmed);
-      const now = Date.now();
-      this.shelves.value.update((list) => [
-        ...list,
-        { id, name: trimmed, bookIds: [], createdAt: now, updatedAt: now },
-      ]);
+      // The shelf is not added to the list here: `shelvesResource` listens with
+      // `onSnapshot`, and Firestore emits the new shelf from its local cache as
+      // soon as the write is queued. Appending it as well showed it twice —
+      // which is how this reached CI once. The write is still awaited so that
+      // `busy` covers the whole round-trip.
+      await this.library.createShelf(trimmed);
       input.value = '';
     } catch {
       this.error.set('Could not create that shelf. Please try again.');
