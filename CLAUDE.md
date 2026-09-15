@@ -157,6 +157,11 @@ dentro del workflow: nombran el proyecto pero no dan acceso sin el token.
 - `linkedSignal` se usa para el estado de lectura editable en la página de
   detalle: se inicializa desde un `resource()` que lee Firestore, pero el
   usuario puede pisarlo localmente sin esperar el round-trip.
+- **Las lecturas de Firestore son listeners vivos, no fotos.** Los tres
+  `*Resource` de `LibraryService` usan `onSnapshot` detrás de un `resource()`
+  en su variante **`stream`** (no `loader`). Un cambio hecho en otra pestaña, o
+  en la ficha mientras `/library` está abierta en otra, llega solo. Las
+  escrituras siguen siendo puntuales; solo cambiaron las lecturas.
 
 ### Firestore: modelo y reglas
 
@@ -337,6 +342,31 @@ paralelismo: todos los specs comparten esa única lista de lectura.
 - **El alcance de Prettier son `src/` y `e2e/`**, no el repositorio entero:
   `CLAUDE.md` y `AGENTS.md` están escritos a mano y `angular.json` y los
   `tsconfig.*` los regenera el CLI, que volvería a ensuciarlos.
+
+### Trampas descubiertas (lecturas en vivo con `onSnapshot`)
+
+- **`resource()` tiene una variante `stream` además de `loader`**, y es la que
+  encaja con un listener. En vez de devolver una promesa **del valor**, devuelve
+  una promesa **de un signal** que sigue emitiendo
+  (`Promise<Signal<ResourceStreamItem<T>>>`). Las dos son excluyentes: los
+  tipos impiden pasar `stream` y `loader` a la vez. No está documentada en
+  `references/resource.md` de la skill — se confirmó en los typings del paquete
+  (`node_modules/@angular/core/types/_api-chunk.d.ts`).
+- **La promesa debe resolverse con el primer snapshot, no al suscribirse.**
+  Resolverla al abrir el listener pone el resource en `resolved` con la lista
+  vacía, y la UI anuncia "no tienes libros" antes de saber nada — el mismo
+  engaño que los resources *idle* en `/library`. Por eso el signal de
+  `streamFrom()` **nace con el primer item** en vez de arrancar con un valor de
+  relleno.
+- **El `abortSignal` es quien cancela la suscripción.** El resource aborta al
+  cambiar los params (otro uid) y al destruirse; sin engancharse ahí queda un
+  listener por navegación, y encima el viejo sigue reportando los libros del
+  usuario anterior. Hay un test que cuenta los listeners abiertos justo por eso.
+- **Un doble que solo devuelve la foto inicial hace pasar los tests igual.** El
+  mock de `firebase/firestore` tuvo que aprender a **reemitir**: guarda los
+  listeners en un `Set` y `notify()` los reejecuta tras cada escritura. Se
+  verificó al revés —quitando el registro en el `Set`— y caen exactamente los 5
+  tests de sincronización, ninguno de los otros 21.
 
 ### Trampas descubiertas (fase 7, deploy en Vercel)
 
@@ -530,9 +560,8 @@ detectarlas es mirar el `<body>`, nunca el status code.
 - Quitar un libro de la lista de lectura **no lo saca de las estanterías**
   (sería una escritura por estantería). La página muestra esos libros con su id
   como etiqueta, al no poder resolver el título.
-- El estado de lectura no se sincroniza entre pestañas ni entre la ficha y
-  `/library`: cada página lee Firestore al montarse. Se resolvería con
-  `onSnapshot`, que aún no se usa en ningún sitio.
+- El `VERCEL_TOKEN` del CI caduca; habrá que renovarlo (último cambio:
+  2026-09-14).
 
 ## Vault
 El vault (`Vault Proyectos`) no tenía nada documentado sobre SSR,

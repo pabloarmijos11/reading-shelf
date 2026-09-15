@@ -29,6 +29,19 @@ const firestore = vi.hoisted(() => ({
   store: new Map<string, Record<string, unknown>>(),
   writes: [] as WriteRecord[],
   mintedIds: 0,
+  /**
+   * Open `onSnapshot` listeners, re-run after every write.
+   *
+   * This is what lets the tests prove the live behaviour: seeding a document
+   * after the resource is up must reach it without a reload.
+   */
+  listeners: new Set<() => void>(),
+  /** Pushes the current store to every open listener, like the server would. */
+  notify(): void {
+    for (const listener of [...this.listeners]) {
+      listener();
+    }
+  },
 }));
 
 /**
@@ -117,7 +130,8 @@ vi.mock('firebase/firestore', () => {
     return settled;
   };
 
-  const getDocs = async (target: ReturnType<typeof query>) => {
+  /** The synchronous read behind both `getDocs` and a collection listener. */
+  const readQuery = (target: ReturnType<typeof query>) => {
     const depth = target.path.split('/').length + 1;
     const rows = [...firestore.store.entries()].filter(
       ([path]) => path.startsWith(`${target.path}/`) && path.split('/').length === depth,
@@ -136,15 +150,45 @@ vi.mock('firebase/firestore', () => {
     };
   };
 
-  const getDoc = async (ref: DocRef) => ({
+  /** The synchronous read behind both `getDoc` and a document listener. */
+  const readDoc = (ref: DocRef) => ({
     id: ref.id,
     exists: () => firestore.store.has(ref.path),
-    data: () => firestore.store.get(ref.path)!,
+    data: () => firestore.store.get(ref.path),
   });
+
+  const getDocs = async (target: ReturnType<typeof query>) => readQuery(target);
+  const getDoc = async (ref: DocRef) => readDoc(ref);
+
+  /**
+   * Both shapes of the real thing: a query listener and a document listener.
+   *
+   * Fires once immediately — Firestore delivers the current state on
+   * subscription — and again on every write, which is what `notify()` drives.
+   */
+  const onSnapshot = (
+    target: ReturnType<typeof query> | DocRef,
+    next: (snapshot: unknown) => void,
+    _error?: (error: Error) => void,
+  ) => {
+    const read = () =>
+      (target as DocRef).kind === 'doc'
+        ? readDoc(target as DocRef)
+        : readQuery(target as ReturnType<typeof query>);
+
+    const deliver = () => next(read());
+    firestore.listeners.add(deliver);
+    deliver();
+
+    return () => {
+      firestore.listeners.delete(deliver);
+    };
+  };
 
   const setDoc = async (ref: DocRef, data: Record<string, unknown>) => {
     firestore.writes.push({ op: 'set', path: ref.path, data });
     firestore.store.set(ref.path, settle(data, undefined));
+    firestore.notify();
   };
 
   const updateDoc = async (ref: DocRef, data: Record<string, unknown>) => {
@@ -154,11 +198,13 @@ vi.mock('firebase/firestore', () => {
     }
     firestore.writes.push({ op: 'update', path: ref.path, data });
     firestore.store.set(ref.path, { ...previous, ...settle(data, previous) });
+    firestore.notify();
   };
 
   const deleteDoc = async (ref: DocRef) => {
     firestore.writes.push({ op: 'delete', path: ref.path });
     firestore.store.delete(ref.path);
+    firestore.notify();
   };
 
   return {
@@ -169,6 +215,7 @@ vi.mock('firebase/firestore', () => {
     query,
     getDocs,
     getDoc,
+    onSnapshot,
     setDoc,
     updateDoc,
     deleteDoc,
@@ -178,9 +225,21 @@ vi.mock('firebase/firestore', () => {
   };
 });
 
-/** Seeds a document straight into the store, bypassing the write log. */
+/**
+ * Seeds a document straight into the store, bypassing the write log.
+ *
+ * It notifies open listeners too, so it doubles as "another tab wrote this"
+ * when called after a resource is already listening.
+ */
 function seed(path: string, data: Record<string, unknown>): void {
   firestore.store.set(path, { ...data });
+  firestore.notify();
+}
+
+/** Removes a document behind the app's back, as another tab would. */
+function unseed(path: string): void {
+  firestore.store.delete(path);
+  firestore.notify();
 }
 
 const stamp = (millis: number) => ({ toMillis: () => millis });
@@ -205,6 +264,7 @@ describe('LibraryService', () => {
     firestore.store.clear();
     firestore.writes.length = 0;
     firestore.mintedIds = 0;
+    firestore.listeners.clear();
 
     auth = fakeAuth({ user: { uid: 'user-1', email: 'pablo@example.com' } });
 
@@ -286,6 +346,52 @@ describe('LibraryService', () => {
 
       expect(entries.value().map((entry) => entry.title)).toEqual(['Theirs']);
     });
+
+    /**
+     * The point of the listener: a write from somewhere else — another tab, or
+     * the detail page while this list is mounted — arrives on its own.
+     */
+    it('should pick up a book added elsewhere, without reloading', async () => {
+      const entries = TestBed.runInInjectionContext(() => build().entriesResource());
+      await settled();
+      expect(entries.value()).toEqual([]);
+
+      seed('users/user-1/books/OL7W', {
+        status: 'want',
+        title: 'Added in another tab',
+        authors: ['C'],
+        updatedAt: stamp(3_000),
+      });
+
+      expect(entries.value().map((entry) => entry.title)).toEqual(['Added in another tab']);
+    });
+
+    it('should drop a book removed elsewhere', async () => {
+      seed('users/user-1/books/OL7W', { status: 'want', title: 'Doomed', updatedAt: stamp(1) });
+
+      const entries = TestBed.runInInjectionContext(() => build().entriesResource());
+      await settled();
+      expect(entries.value()).toHaveLength(1);
+
+      unseed('users/user-1/books/OL7W');
+
+      expect(entries.value()).toEqual([]);
+    });
+
+    /**
+     * A listener per session change would pile up sockets and keep reporting
+     * the previous user's books. The abort path is what prevents it.
+     */
+    it('should close the previous listener when the session changes', async () => {
+      TestBed.runInInjectionContext(() => build().entriesResource());
+      await settled();
+      expect(firestore.listeners.size).toBe(1);
+
+      auth.setUser.set({ uid: 'user-2', email: 'other@example.com' });
+      await settled();
+
+      expect(firestore.listeners.size).toBe(1);
+    });
   });
 
   describe('entryResource', () => {
@@ -322,6 +428,48 @@ describe('LibraryService', () => {
       await settled();
 
       expect(entry.status()).toBe('idle');
+    });
+
+    /**
+     * The half of the bug that had nothing to do with tabs: the detail page and
+     * `/library` used to disagree until one of them was reloaded.
+     */
+    it('should follow a status changed elsewhere', async () => {
+      seed('users/user-1/books/OL45804W', {
+        status: 'want',
+        title: 'Fantastic Mr Fox',
+        authors: ['Roald Dahl'],
+        updatedAt: stamp(1_000),
+      });
+
+      const entry = TestBed.runInInjectionContext(() => build().entryResource(signal('OL45804W')));
+      await settled();
+      expect(entry.value()?.status).toBe('want');
+
+      seed('users/user-1/books/OL45804W', {
+        status: 'read',
+        title: 'Fantastic Mr Fox',
+        authors: ['Roald Dahl'],
+        updatedAt: stamp(2_000),
+      });
+
+      expect(entry.value()?.status).toBe('read');
+    });
+
+    it('should report the book leaving the list as null, not as stale data', async () => {
+      seed('users/user-1/books/OL45804W', {
+        status: 'reading',
+        title: 'Fantastic Mr Fox',
+        updatedAt: stamp(1),
+      });
+
+      const entry = TestBed.runInInjectionContext(() => build().entryResource(signal('OL45804W')));
+      await settled();
+      expect(entry.value()).not.toBeNull();
+
+      unseed('users/user-1/books/OL45804W');
+
+      expect(entry.value()).toBeNull();
     });
   });
 
