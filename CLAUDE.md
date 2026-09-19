@@ -134,9 +134,10 @@ dentro del workflow: nombran el proyecto pero no dan acceso sin el token.
   resultados de búsqueda (dependen del query param `q`) ni las fichas de libro
   (id de una API externa) se pueden enumerar en tiempo de build. Si en el
   futuro se prerenderiza alguna ruta, será una decisión explícita.
-- **No agregar `ChangeDetectionStrategy.OnPush`.** `AGENTS.md` lo pide como
-  regla general de Angular, pero en una app zoneless es redundante: la
-  detección de cambios ya se dispara solo por signals. El CLI tampoco lo genera.
+- **No agregar `ChangeDetectionStrategy.OnPush`.** Las reglas generales de
+  Angular del final de este archivo lo piden, pero en una app zoneless es
+  redundante: la detección de cambios ya se dispara solo por signals. El CLI
+  tampoco lo genera.
 - **Los datos se piden con `httpResource`, nunca con `fetch` a pelo.** Va por
   el `HttpClient` de Angular, y eso es lo que permite que las respuestas
   obtenidas durante el SSR viajen dentro del HTML (transfer state) y el
@@ -340,7 +341,7 @@ paralelismo: todos los specs comparten esa única lista de lectura.
   - `ng test` usa `--include` y `--reporters`; un filtro posicional al estilo
     de Vitest hace que el CLI rechace hasta `--watch`.
 - **El alcance de Prettier son `src/` y `e2e/`**, no el repositorio entero:
-  `CLAUDE.md` y `AGENTS.md` están escritos a mano y `angular.json` y los
+  `CLAUDE.md` está escrito a mano y `angular.json` y los
   `tsconfig.*` los regenera el CLI, que volvería a ensuciarlos.
 
 ### Trampas descubiertas (lecturas en vivo con `onSnapshot`)
@@ -410,14 +411,16 @@ detectarlas es mirar el `<body>`, nunca el status code.
   variables (`NG_ALLOWED_HOSTS`, `NG_TRUST_PROXY_HEADERS`) van en `env` allí:
   quedan versionadas y se pueden explicar en un commit. Se perdió bastante rato
   por no poder verificar qué había en un formulario web.
-- **El despliegue está protegido con login** (Vercel Authentication, *All
-  Deployments*). Es una decisión deliberada: es un proyecto de práctica y no se
-  quiso publicar. Para verificarlo desde fuera se usa **Protection Bypass for
-  Automation**, un secreto de 32 caracteres que se manda en la cabecera
-  `x-vercel-protection-bypass`. **Consecuencia que hay que tener presente: con
-  esa protección puesta, ningún crawler ve el SSR.** El día que el objetivo sea
-  el SEO real, hay que pasar la protección a *Standard Protection*, que deja
-  producción pública y mantiene las previews cerradas.
+- **La protección del despliegue está en *Standard Protection*** desde el
+  2026-09-18: producción (`reading-shelf-ebon.vercel.app`) es pública y las
+  previews y URLs de cada despliegue siguen pidiendo login. Arrancó en *All
+  Deployments* mientras era un proyecto de práctica; se abrió al publicar el
+  repositorio, porque **con producción protegida ningún crawler ve el SSR** y
+  entonces todo el trabajo de renderizado en servidor no sirve para nada.
+  - El paso de verificación del workflow sigue mandando **Protection Bypass for
+    Automation** (`x-vercel-protection-bypass`), y tiene que seguir haciéndolo:
+    comprueba la URL del despliegue recién creado, que no es la de producción y
+    por tanto sí está protegida.
 
 ### Trampas descubiertas (fase 4)
 
@@ -573,12 +576,62 @@ de acá contradice lo que diga el vault en el futuro, gana el vault.
 
 ## Reglas generales de Angular
 
-Están en **`AGENTS.md`** (raíz del proyecto), generado por `ng new
---ai-config=agents` con las best practices de Angular 21: standalone sin
-`standalone: true`, `input()`/`output()` en vez de decoradores,
-`ChangeDetectionStrategy.OnPush`, control flow nativo (`@if`/`@for`),
-`inject()` en vez de constructor injection, `NgOptimizedImage`, y requisitos
-de accesibilidad (AXE, WCAG AA).
+Lo que sigue son las best practices que genera `ng new --ai-config=agents`.
+Aplican a cualquier proyecto Angular, no solo a este; se mantienen en inglés
+tal como las produce el CLI. Vivían en un `AGENTS.md` aparte hasta el
+2026-09-18, cuando se fusionaron aquí para que el repositorio tenga un solo
+archivo de instrucciones.
 
-**No dupliques esas reglas acá**: se leen de `AGENTS.md` para que no
-diverjan. Este `CLAUDE.md` cubre solo lo específico de reading-shelf.
+**Dos de estas reglas no rigen en reading-shelf.** Están marcadas abajo; la
+explicación larga está en "Convenciones y reglas del proyecto".
+
+- Use strict type checking
+- Prefer type inference when the type is obvious
+- Avoid the `any` type; use `unknown` when type is uncertain
+- Always use standalone components over NgModules
+- Must NOT set `standalone: true` inside Angular decorators. It's the default in Angular v20+.
+- Use signals for state management
+- Implement lazy loading for feature routes
+- Do NOT use the `@HostBinding` and `@HostListener` decorators. Put host bindings inside the `host` object of the `@Component` or `@Directive` decorator instead
+- Use `NgOptimizedImage` for all static images (does not work for inline base64 images)
+
+### Accessibility
+
+- It MUST pass all AXE checks.
+- It MUST follow all WCAG AA minimums, including focus management, color contrast, and ARIA attributes.
+
+### Components
+
+- Keep components small and focused on a single responsibility
+- Use `input()` and `output()` functions instead of decorators
+- Use `computed()` for derived state
+- ~~Set `changeDetection: ChangeDetectionStrategy.OnPush`~~ — **no aplica acá.**
+  La app es zoneless: la detección de cambios ya la disparan los signals, así que
+  `OnPush` es redundante. El CLI tampoco lo genera en este proyecto.
+- Prefer inline templates for small components
+- ~~Prefer Reactive forms instead of Template-driven ones~~ — **desactualizado.**
+  En Angular 21 los formularios nuevos van con Signal Forms
+  (`@angular/forms/signals`), no con `FormControl`/`FormGroup`.
+- Do NOT use `ngClass`, use `class` bindings instead
+- Do NOT use `ngStyle`, use `style` bindings instead
+- When using external templates/styles, use paths relative to the component TS file.
+
+### State Management
+
+- Use signals for local component state
+- Use `computed()` for derived state
+- Keep state transformations pure and predictable
+- Do NOT use `mutate` on signals, use `update` or `set` instead
+
+### Templates
+
+- Keep templates simple and avoid complex logic
+- Use native control flow (`@if`, `@for`, `@switch`) instead of `*ngIf`, `*ngFor`, `*ngSwitch`
+- Use the async pipe to handle observables
+- Do not assume globals like `new Date()` are available.
+
+### Services
+
+- Design services around a single responsibility
+- Use the `providedIn: 'root'` option for singleton services
+- Use the `inject()` function instead of constructor injection

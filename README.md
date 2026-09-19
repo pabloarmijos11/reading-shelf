@@ -5,6 +5,11 @@ App de libros construida con Angular (SSR). Busca libros a través de la
 cuenta, permite guardar tu propia lista de lectura (quiero leer / leyendo /
 leído) y organizar libros en estanterías personalizadas.
 
+**Demo: https://reading-shelf-ebon.vercel.app**
+
+Las páginas de búsqueda y de ficha de libro son públicas y se renderizan en
+servidor; la biblioteca personal pide cuenta.
+
 ## Stack
 
 - Angular con Server-Side Rendering
@@ -65,8 +70,10 @@ despliegue en sí tarda unos segundos. El último paso pide la página publicada
 falla si no viene renderizada en servidor: una app SSR rota responde igual con
 HTTP 200, así que comprobar el código de estado no serviría de nada.
 
-El despliegue está protegido con login de Vercel, por ser un proyecto de
-práctica que no se quiso publicar.
+Producción es pública; las previews y las URLs de cada despliegue quedan detrás
+del login de Vercel (*Standard Protection*). Tiene que ser así para que el SSR
+sirva de algo: con producción protegida, ningún buscador llega a ver el HTML
+renderizado.
 
 ## Estructura de carpetas
 
@@ -82,13 +89,15 @@ api/            la función que ejecuta el SSR en Vercel
 ## Estado
 
 Terminado. Las siete fases previstas están completas: búsqueda y ficha de libro
-renderizadas en servidor, lista de lectura y estanterías por usuario, 101 tests
+renderizadas en servidor, lista de lectura y estanterías por usuario, 106 tests
 unitarios, 18 end-to-end, integración continua y despliegue automatizado.
 
 Lo que quedó sin hacer, a sabiendas:
 
 - Quitar un libro de la lista no lo saca de las estanterías donde estuviera.
-- El estado de lectura no se sincroniza entre pestañas: cada página consulta al
-  montarse.
 - Open Library puede tardar demasiado durante el renderizado en servidor; la
   página se sirve igual, pero en estado de carga.
+
+## Licencia
+
+[MIT](LICENSE).
