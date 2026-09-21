@@ -84,7 +84,7 @@ vercel.json                   # routes, env del runtime y empaquetado de la func
 
 ## Despliegue
 
-Producción vive en Vercel (cuenta **DINHONETA**, plan Hobby), y **el despliegue
+Producción vive en Vercel (plan Hobby), y **el despliegue
 lo lanza el workflow, no Vercel**: `git.deploymentEnabled` está en `false` en
 `vercel.json`. La integración de Git desplegaba en cada push sin mirar el CI, de
 modo que una suite en rojo llegaba igual a producción; el job `deploy` con
