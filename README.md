@@ -7,6 +7,9 @@ leído) y organizar libros en estanterías personalizadas.
 
 **Demo: https://reading-shelf-ebon.vercel.app**
 
+**Informe técnico:** [arquitectura, pruebas y despliegue](docs/informe-tecnico.pdf)
+(PDF, septiembre 2026)
+
 Las páginas de búsqueda y de ficha de libro son públicas y se renderizan en
 servidor; la biblioteca personal pide cuenta.
 

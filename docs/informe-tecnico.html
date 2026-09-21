@@ -1,0 +1,492 @@
+<meta charset="utf-8">
+<title>Reading Shelf — Informe Técnico</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  @page :first { margin: 0; }
+
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  :root {
+    --ink:    #16202e;
+    --muted:  #5b6b80;
+    --line:   #d7dee8;
+    --brand:  #0f2f4f;
+    --accent: #1f6f8b;
+    --soft:   #f3f6fa;
+    --code:   #f6f8fa;
+  }
+
+  body {
+    font-family: "Segoe UI", -apple-system, system-ui, sans-serif;
+    color: var(--ink);
+    font-size: 10.2pt;
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  /* ---------- Portada ---------- */
+  .cover {
+    height: 297mm;
+    padding: 46mm 22mm 20mm;
+    background: linear-gradient(160deg, #0f2f4f 0%, #14405f 55%, #1f6f8b 100%);
+    color: #fff;
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+  }
+  .cover .mark { font-size: 40pt; line-height: 1; margin-bottom: 10mm; }
+  .cover h1 { font-size: 34pt; margin: 0 0 4mm; font-weight: 650; letter-spacing: -0.5pt; }
+  .cover .sub { font-size: 13pt; opacity: .88; font-weight: 300; margin-bottom: 16mm; }
+  .cover .rule { width: 46mm; height: 2.5pt; background: rgba(255,255,255,.55); margin-bottom: 12mm; }
+  .cover dl { display: grid; grid-template-columns: 26mm 1fr; gap: 3mm 6mm; font-size: 10pt; margin: 0; }
+  .cover dt { opacity: .7; text-transform: uppercase; letter-spacing: .8pt; font-size: 8pt; padding-top: 1.2pt; }
+  .cover dd { margin: 0; }
+  .cover .foot { margin-top: auto; font-size: 8.5pt; opacity: .65; }
+
+  /* ---------- Cuerpo ---------- */
+  h2 {
+    font-size: 15pt; color: var(--brand); margin: 9mm 0 3mm;
+    padding-bottom: 1.6mm; border-bottom: 1.6pt solid var(--accent);
+    page-break-after: avoid;
+  }
+  h2:first-of-type { margin-top: 0; }
+  h3 { font-size: 11.4pt; color: var(--brand); margin: 6mm 0 2mm; page-break-after: avoid; }
+  p { margin: 0 0 3mm; text-align: justify; }
+
+  table { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; font-size: 9.2pt; page-break-inside: avoid; }
+  th { background: var(--brand); color: #fff; text-align: left; padding: 2mm 2.6mm; font-weight: 600; font-size: 8.8pt; }
+  td { padding: 2mm 2.6mm; border-bottom: .6pt solid var(--line); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--soft); }
+  td.num { text-align: center; font-variant-numeric: tabular-nums; width: 12mm; }
+  tfoot td { font-weight: 700; background: #e6edf5 !important; border-top: 1.2pt solid var(--accent); }
+
+  code { font-family: Consolas, "Courier New", monospace; font-size: .89em; background: var(--code);
+         padding: .4mm 1.1mm; border-radius: 2px; color: #0b3d5c; }
+  pre {
+    background: #0f2233; color: #dbe7f2; padding: 3.2mm 4mm; border-radius: 3px;
+    font-family: Consolas, "Courier New", monospace; font-size: 8.3pt; line-height: 1.5;
+    overflow: hidden; white-space: pre-wrap; margin: 2mm 0 4mm; page-break-inside: avoid;
+  }
+  pre .c { color: #7fa6c0; }      /* comentario */
+  pre .k { color: #7fd3ff; }      /* palabra clave */
+  pre .s { color: #b9e6a8; }      /* string / ok */
+  pre .w { color: #ffc98b; }      /* atencion */
+
+  figure { margin: 4mm 0 5mm; page-break-inside: avoid; text-align: center; }
+  figure svg { max-width: 100%; height: auto; }
+  figcaption { font-size: 8.3pt; color: var(--muted); margin-top: 2mm; text-align: center; }
+
+  .callout {
+    border-left: 2.6pt solid var(--accent); background: var(--soft);
+    padding: 2.6mm 4mm; margin: 3mm 0 4mm; page-break-inside: avoid;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .lbl { font-weight: 700; color: var(--brand); }
+
+  .break { page-break-before: always; }
+  ul { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1.4mm; }
+</style>
+
+<!-- ========================= PORTADA ========================= -->
+<div class="cover">
+  <div class="mark">📚</div>
+  <h1>Reading Shelf</h1>
+  <div class="sub">Aplicación de libros con Angular SSR y Firebase<br>Informe técnico</div>
+  <div class="rule"></div>
+  <dl>
+    <dt>Autor</dt><dd>Pablo Nicolás Armijos Sánchez</dd>
+    <dt>Demo</dt><dd>reading-shelf-ebon.vercel.app</dd>
+    <dt>Repositorio</dt><dd>github.com/pabloarmijos11/reading-shelf</dd>
+    <dt>Stack</dt><dd>Angular 21.2 (SSR) · Firebase 12 · Tailwind CSS 4 · Vitest · Playwright · GitHub Actions · Vercel</dd>
+    <dt>Licencia</dt><dd>MIT</dd>
+    <dt>Fecha</dt><dd>21 de septiembre de 2026</dd>
+  </dl>
+  <div class="foot">106 pruebas unitarias · 18 end-to-end · 26 commits · despliegue continuo verificado</div>
+</div>
+
+<!-- ========================= 1 ========================= -->
+<h2>1. Contexto y objetivos</h2>
+
+<p><strong>Reading Shelf</strong> permite buscar libros contra la API pública de Open Library,
+llevar una lista de lectura con tres estados (<em>quiero leer</em>, <em>leyendo</em>,
+<em>leído</em>) y agrupar los libros en estanterías propias. Las páginas de búsqueda y de
+ficha de libro son públicas; la biblioteca personal exige cuenta.</p>
+
+<p>El objetivo del proyecto no era el catálogo en sí, sino construir una aplicación con la
+infraestructura completa que un producto real necesita: renderizado en servidor para que el
+contenido público sea indexable, reglas de seguridad que resistan a un cliente malicioso, y
+un pipeline donde las pruebas sean una puerta y no un informe que nadie lee.</p>
+
+<table>
+  <tr><th style="width:38%">Objetivo</th><th>Cómo se cumple</th></tr>
+  <tr><td>Contenido público indexable</td>
+      <td>SSR por petición en búsqueda y ficha de libro (<code>RenderMode.Server</code>), verificado en cada despliegue.</td></tr>
+  <tr><td>Datos privados por usuario</td>
+      <td>Subcolecciones bajo <code>users/{uid}</code>; la ruta <em>es</em> la comprobación de propiedad.</td></tr>
+  <tr><td>Integridad de los datos</td>
+      <td>Validación de forma en las reglas y fechas selladas por el servidor: el cliente no puede falsearlas.</td></tr>
+  <tr><td>Verificación automatizada</td>
+      <td>106 pruebas unitarias con Vitest y 18 end-to-end con Playwright sobre un navegador real.</td></tr>
+  <tr><td>Despliegue fiable</td>
+      <td>El deploy es el último eslabón del pipeline y solo ocurre si los E2E pasaron (sección 6).</td></tr>
+</table>
+
+<!-- ========================= 2 ========================= -->
+<h2>2. Arquitectura</h2>
+
+<p>La aplicación se ejecuta en dos entornos distintos y esa separación gobierna casi todas las
+decisiones del proyecto. En el servidor se renderiza el HTML y se consulta Open Library; en el
+navegador viven la sesión y el acceso a la base de datos. Ningún dato privado se toca durante
+el renderizado en servidor, porque allí sencillamente no hay sesión.</p>
+
+<figure>
+<svg viewBox="0 0 780 400" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, sans-serif">
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto">
+      <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#1f6f8b"/>
+    </marker>
+    <marker id="ag" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto">
+      <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#8a94a6"/>
+    </marker>
+  </defs>
+
+  <!-- Vercel -->
+  <rect x="246" y="14" width="292" height="126" rx="7" fill="#f3f6fa" stroke="#b9c6d6" stroke-dasharray="4 3"/>
+  <text x="392" y="33" text-anchor="middle" font-size="10" fill="#5b6b80" letter-spacing="1.2">VERCEL</text>
+  <rect x="266" y="44" width="252" height="80" rx="5" fill="#0f2f4f"/>
+  <text x="392" y="70" text-anchor="middle" font-size="14" fill="#fff" font-weight="600">Función SSR</text>
+  <text x="392" y="90" text-anchor="middle" font-size="10.5" fill="#b9d4e6">Express 5 + @angular/ssr</text>
+  <text x="392" y="108" text-anchor="middle" font-size="10" fill="#8fb8d0">renderiza el HTML por petición</text>
+
+  <!-- Navegador -->
+  <rect x="24" y="180" width="236" height="118" rx="7" fill="#1f6f8b"/>
+  <text x="142" y="208" text-anchor="middle" font-size="14" fill="#fff" font-weight="600">Navegador</text>
+  <text x="142" y="228" text-anchor="middle" font-size="10.5" fill="#d3ecf5">Angular 21 · signals</text>
+  <line x1="52" y1="242" x2="232" y2="242" stroke="#6aa9c0"/>
+  <text x="142" y="260" text-anchor="middle" font-size="10" fill="#d3ecf5">hidrata el HTML recibido</text>
+  <text x="142" y="278" text-anchor="middle" font-size="10" fill="#d3ecf5">y toma el control</text>
+
+  <!-- Open Library -->
+  <rect x="566" y="180" width="190" height="72" rx="7" fill="#fff" stroke="#1f6f8b" stroke-width="1.6"/>
+  <text x="661" y="208" text-anchor="middle" font-size="12.5" fill="#0f2f4f" font-weight="600">Open Library</text>
+  <text x="661" y="228" text-anchor="middle" font-size="10" fill="#5b6b80">API pública de libros</text>
+
+  <!-- Firebase -->
+  <rect x="300" y="300" width="380" height="86" rx="7" fill="#fff8ec" stroke="#e0a75e" stroke-width="1.4"/>
+  <text x="490" y="322" text-anchor="middle" font-size="10" fill="#96702f" letter-spacing="1.2">FIREBASE — SOLO NAVEGADOR</text>
+  <rect x="318" y="332" width="168" height="42" rx="4" fill="#fff" stroke="#e0a75e"/>
+  <text x="402" y="352" text-anchor="middle" font-size="11.5" fill="#7a5717" font-weight="600">Authentication</text>
+  <text x="402" y="367" text-anchor="middle" font-size="9" fill="#96702f">sesión del usuario</text>
+  <rect x="496" y="332" width="168" height="42" rx="4" fill="#fff" stroke="#e0a75e"/>
+  <text x="580" y="352" text-anchor="middle" font-size="11.5" fill="#7a5717" font-weight="600">Firestore</text>
+  <text x="580" y="367" text-anchor="middle" font-size="9" fill="#96702f">import() dinámico</text>
+
+  <!-- flechas -->
+  <path d="M150,180 L210,148" stroke="#1f6f8b" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+  <text x="128" y="163" font-size="9.5" fill="#1f6f8b">petición</text>
+  <path d="M238,146 L182,178" stroke="#8a94a6" stroke-width="1.7" fill="none" marker-end="url(#ag)" stroke-dasharray="5 3"/>
+  <text x="228" y="175" font-size="9.5" fill="#6b7789">HTML listo</text>
+
+  <path d="M540,100 L600,176" stroke="#1f6f8b" stroke-width="1.7" fill="none" marker-end="url(#a)"/>
+  <text x="556" y="140" font-size="9.5" fill="#1f6f8b">búsqueda</text>
+
+  <path d="M262,250 L562,218" stroke="#c3ccd8" stroke-width="1.4" fill="none" marker-end="url(#ag)" stroke-dasharray="4 3"/>
+  <text x="372" y="231" font-size="9" fill="#8a94a6">portadas e imágenes</text>
+
+  <path d="M170,300 L316,330" stroke="#e0a75e" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+  <text x="176" y="326" font-size="9.5" fill="#96702f">sesión y datos privados</text>
+</svg>
+<figcaption><strong>Figura 1</strong> — Arquitectura. El servidor solo habla con Open Library;
+Firebase nunca se toca durante el renderizado en servidor.</figcaption>
+</figure>
+
+<table>
+  <tr><th style="width:30%">Carpeta</th><th>Responsabilidad</th></tr>
+  <tr><td><code>src/app/core</code></td><td>Servicios de sesión y datos, guard de ruta, carga de Firestore, modelos.</td></tr>
+  <tr><td><code>src/app/features</code></td><td>Una carpeta por pantalla: <code>search</code>, <code>book-detail</code>, <code>library</code>, <code>auth</code>. Todas cargadas con <code>loadComponent</code>.</td></tr>
+  <tr><td><code>src/app/shared</code></td><td>Componentes reutilizables entre pantallas (<code>book-card</code>).</td></tr>
+  <tr><td><code>api/</code></td><td>La función que ejecuta el renderizado en servidor dentro de Vercel.</td></tr>
+  <tr><td><code>e2e/</code></td><td>Pruebas de Playwright contra la aplicación construida y servida de verdad.</td></tr>
+</table>
+
+<!-- ========================= 3 ========================= -->
+<div class="break"></div>
+<h2>3. Tres decisiones que definen el proyecto</h2>
+
+<h3>3.1 Qué se renderiza en el servidor, y la única excepción deliberada</h3>
+
+<p>Casi todo se renderiza en servidor, porque casi todo es público y debe ser indexable. La
+búsqueda depende de un parámetro de consulta y la ficha depende de un identificador que solo
+existe en Open Library: ninguna de las dos puede generarse en tiempo de compilación, así que
+ambas se renderizan por petición.</p>
+
+<p>La biblioteca personal es la excepción, y no por comodidad. Está protegida por un guard, y
+la sesión solo existe en el navegador: en el servidor no hay sesión que valga, de modo que el
+guard concluiría <em>«nadie ha iniciado sesión»</em> y redirigiría <strong>todas</strong> las
+peticiones al login, incluidas las de usuarios perfectamente autenticados. Renderizarla en
+cliente permite que el guard se ejecute donde la sesión realmente está.</p>
+
+<pre><span class="c">// app.routes.server.ts</span>
+{ path: <span class="s">'books/:id'</span>, renderMode: RenderMode.<span class="k">Server</span> },  <span class="c">// público → SSR</span>
+{ path: <span class="s">'library'</span>,   renderMode: RenderMode.<span class="k">Client</span> },  <span class="c">// privado → cliente</span>
+{ path: <span class="s">'**'</span>,        renderMode: RenderMode.<span class="k">Server</span> },</pre>
+
+<p>No se pierde nada: la página es privada, luego no tiene valor para un buscador, y sus datos
+tampoco podrían obtenerse en el servidor.</p>
+
+<h3>3.2 Firestore se carga bajo demanda, y solo en el navegador</h3>
+
+<p>Importar <code>firebase/firestore</code> de forma estática arrastra al bundle del servidor la
+compilación de Firebase basada en gRPC, que rompe las peticiones HTTP salientes de Angular
+durante el renderizado. La solución es un servicio que lo carga con un <code>import()</code>
+dinámico y que además responde si Firestore está disponible siquiera.</p>
+
+<pre><span class="c">// firestore-loader.ts — el import dinámico es lo que mantiene</span>
+<span class="c">// firebase/firestore fuera del bundle del servidor.</span>
+<span class="k">this</span>.instance ??= <span class="k">import</span>(<span class="s">'firebase/firestore'</span>)
+  .then(({ getFirestore }) => getFirestore(<span class="k">this</span>.app));</pre>
+
+<p>La regla se propaga a todo el código que lee o escribe: sus utilidades deben venir del mismo
+import dinámico, nunca de uno estático, o el problema regresa intacto. El efecto secundario es
+favorable: Firestore tampoco entra en el bundle inicial del cliente hasta que un usuario
+identificado lo necesita de verdad.</p>
+
+<h3>3.3 El guard espera a que la sesión se conozca</h3>
+
+<p>Firebase resuelve el estado de la sesión de forma asíncrona. Preguntar
+<code>isSignedIn()</code> de inmediato devuelve <em>falso</em> mientras la respuesta viaja, y
+el resultado es un usuario válido expulsado al login cada vez que recarga la página. El guard
+espera a que el estado esté resuelto antes de decidir y, si toca redirigir, recuerda a dónde
+iba el usuario.</p>
+
+<pre><span class="k">if</span> (!auth.ready()) {
+  <span class="k">await</span> firstValueFrom(toObservable(auth.ready).pipe(filter(Boolean)));
+}
+<span class="k">if</span> (auth.isSignedIn()) <span class="k">return</span> <span class="k">true</span>;
+<span class="k">return</span> router.createUrlTree([<span class="s">'/login'</span>], { queryParams: { redirectTo: state.url } });</pre>
+
+<div class="callout">
+  <p><span class="lbl">Por qué importa.</span> Es un fallo que no aparece en desarrollo: en local
+  la sesión se resuelve tan rápido que el parpadeo pasa inadvertido. Tres de las pruebas del
+  guard existen precisamente para cubrir el estado intermedio —sesión aún desconocida— que es
+  donde vive el error.</p>
+</div>
+
+<!-- ========================= 4 ========================= -->
+<h2>4. Modelo de datos y reglas de seguridad</h2>
+
+<p>Cada usuario posee dos subcolecciones bajo su propio identificador. Esa forma es intencional:
+la ruta del documento contiene el dueño, así que la comprobación de propiedad no requiere leer
+el documento ni confiar en ningún campo que el cliente pueda escribir.</p>
+
+<pre>users/{uid}/books/{workId}     <span class="c">// lista de lectura</span>
+users/{uid}/shelves/{shelfId}  <span class="c">// estanterías</span></pre>
+
+<table>
+  <tr><th style="width:34%">Garantía</th><th>Cómo se consigue</th></tr>
+  <tr><td>Nadie lee datos ajenos</td><td><code>request.auth.uid == userId</code>, comparando contra el segmento de la ruta.</td></tr>
+  <tr><td>Las fechas no se pueden falsear</td><td><code>updatedAt</code> debe ser exactamente <code>request.time</code>: <code>serverTimestamp()</code> resuelve a ese valor y cualquier otro se rechaza.</td></tr>
+  <tr><td><code>createdAt</code> es inmutable</td><td>En actualizaciones se fija a su valor almacenado, no al del servidor: las escrituras llegan parciales (renombrar, añadir libro).</td></tr>
+  <tr><td>No entran campos sorpresa</td><td><code>hasAll</code> más <code>hasOnly</code>: ni falta ninguno de los obligatorios ni sobra ninguno.</td></tr>
+  <tr><td>Todo lo no contemplado se deniega</td><td>Regla final <code>match /{document=**}</code> con <code>allow read, write: if false</code>.</td></tr>
+</table>
+
+<pre><span class="c">// Hora sellada por el servidor: el cliente no puede adelantar ni atrasar.</span>
+<span class="k">function</span> isServerTime(value) {
+  <span class="k">return</span> value <span class="k">is</span> timestamp && value == request.time;
+}
+
+<span class="k">function</span> isValidEntry(data) {
+  <span class="k">return</span> data.keys().hasAll([<span class="s">'status'</span>, <span class="s">'title'</span>, <span class="s">'authors'</span>, <span class="s">'updatedAt'</span>]) &&
+         data.keys().hasOnly([<span class="s">'status'</span>, <span class="s">'title'</span>, <span class="s">'authors'</span>, <span class="s">'coverId'</span>, <span class="s">'updatedAt'</span>]) &&
+         data.status <span class="k">in</span> [<span class="s">'want'</span>, <span class="s">'reading'</span>, <span class="s">'read'</span>] &&
+         data.title <span class="k">is</span> string && data.title.size() > 0 && data.title.size() &lt;= 300 &&
+         isServerTime(data.updatedAt);
+}</pre>
+
+<p>Las reglas documentan también lo que <em>no</em> cubren: el tamaño de cada elemento de
+<code>authors</code> no se valida, solo el de la lista. Un usuario decidido podría guardar
+cadenas muy largas dentro de su propio documento; el alcance queda limitado a ese documento y
+al tope de 1 MB de Firestore, y el cliente trunca cada campo antes de escribir. Declararlo es
+parte del análisis: una regla de seguridad que se presenta como infalible es más peligrosa que
+una cuyos límites están escritos.</p>
+
+<!-- ========================= 5 ========================= -->
+<h2>5. Pruebas automatizadas</h2>
+
+<p>Dos suites con propósitos distintos. Las unitarias corren con <strong>Vitest</strong>, no
+tocan la red y sustituyen el SDK de Firebase por dobles inyectados; terminan en segundos, así
+que pueden ejecutarse en cada cambio. Las end-to-end corren con <strong>Playwright</strong>
+sobre Chromium real contra el proyecto de Firebase real, iniciando sesión con una cuenta de
+prueba dedicada.</p>
+
+<table>
+  <tr><th>Archivo de prueba</th><th>Qué valida</th><th class="num">N.º</th></tr>
+  <tr><td><code>library.service.spec.ts</code></td><td>Lista de lectura y estanterías: altas, cambios de estado, listeners en vivo y truncado de campos antes de escribir</td><td class="num">26</td></tr>
+  <tr><td><code>library.spec.ts</code></td><td>Pantalla de biblioteca: filtros por estado, estanterías y estados vacíos</td><td class="num">17</td></tr>
+  <tr><td><code>book-detail.spec.ts</code></td><td>Ficha de libro, incluido el comportamiento durante el renderizado en servidor</td><td class="num">15</td></tr>
+  <tr><td><code>open-library.models.spec.ts</code></td><td>Traducción de la respuesta de Open Library al modelo propio, con campos ausentes o malformados</td><td class="num">15</td></tr>
+  <tr><td><code>auth-page.spec.ts</code></td><td>Formulario único de login y registro, y sus mensajes de error</td><td class="num">8</td></tr>
+  <tr><td><code>auth.service.spec.ts</code></td><td>Registro, entrada, salida y traducción de cada error de Firebase</td><td class="num">7</td></tr>
+  <tr><td><code>auth.guard.spec.ts</code></td><td>Con sesión, sin sesión y —lo importante— con la sesión todavía sin resolver</td><td class="num">5</td></tr>
+  <tr><td><code>app.spec.ts</code></td><td>Arranque de la aplicación y navegación principal</td><td class="num">5</td></tr>
+  <tr><td><code>search.spec.ts</code></td><td>Búsqueda, estados de carga y sin resultados</td><td class="num">4</td></tr>
+  <tr><td><code>book-card.spec.ts</code></td><td>Tarjeta de libro reutilizable</td><td class="num">4</td></tr>
+  <tfoot><tr><td colspan="2">Total unitarias — 10 archivos</td><td class="num">106</td></tr></tfoot>
+</table>
+
+<pre><span class="c">$ npm test -- --watch=false</span>
+
+ RUN  v4.1.11  reading-shelf
+
+ Test Files  <span class="s">10 passed (10)</span>
+      Tests  <span class="s">106 passed (106)</span>
+   Duration  22.81s</pre>
+<figcaption style="text-align:left;margin:-2mm 0 5mm">
+<strong>Figura 2</strong> — Salida real de la suite unitaria (Vitest 4.1.11).</figcaption>
+
+<table>
+  <tr><th>Suite end-to-end</th><th>Qué recorre</th><th class="num">N.º</th></tr>
+  <tr><td><code>library.spec.ts</code></td><td>Añadir un libro, cambiar su estado, crear una estantería y dejar la cuenta limpia al terminar</td><td class="num">7</td></tr>
+  <tr><td><code>auth.spec.ts</code></td><td>Entrada, salida, contraseña incorrecta y regreso a la página de destino tras el login</td><td class="num">6</td></tr>
+  <tr><td><code>search.spec.ts</code></td><td>Búsqueda sobre la aplicación servida con SSR y navegación a la ficha</td><td class="num">5</td></tr>
+  <tfoot><tr><td colspan="2">Total end-to-end — 3 archivos</td><td class="num">18</td></tr></tfoot>
+</table>
+
+<div class="callout">
+  <p><span class="lbl">Una cuenta de prueba compartida obliga a un solo trabajador.</span>
+  Las pruebas end-to-end escriben en la lista de lectura de una cuenta real y la vacían al
+  acabar. Dos ejecuciones simultáneas se pelearían por los mismos datos, así que Playwright
+  está configurado con un único worker y la suite se mantiene fuera de los <em>pull
+  requests</em>: solo corre cuando el cambio ya está en <code>main</code>.</p>
+</div>
+
+<!-- ========================= 6 ========================= -->
+<h2>6. Integración continua y despliegue</h2>
+
+<p>El pipeline tiene tres trabajos encadenados y una regla que lo explica entero: el despliegue
+depende de las pruebas end-to-end. Si fallan, producción no se toca.</p>
+
+<figure>
+<svg viewBox="0 0 780 330" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, sans-serif">
+  <defs>
+    <marker id="b" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto">
+      <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#1f6f8b"/>
+    </marker>
+    <marker id="br" markerWidth="9" markerHeight="9" refX="8" refY="3.2" orient="auto">
+      <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#c0392b"/>
+    </marker>
+  </defs>
+
+  <!-- fila pull request -->
+  <text x="14" y="34" font-size="10.5" fill="#5b6b80" font-weight="600">PULL REQUEST</text>
+  <rect x="14" y="46" width="176" height="52" rx="5" fill="#1f6f8b"/>
+  <text x="102" y="68" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">check</text>
+  <text x="102" y="86" text-anchor="middle" font-size="9" fill="#d3ecf5">formato · 106 tests · build</text>
+
+  <line x1="190" y1="72" x2="246" y2="72" stroke="#c0392b" stroke-width="1.8" marker-end="url(#br)" stroke-dasharray="5 3"/>
+  <rect x="250" y="50" width="150" height="44" rx="5" fill="#fdf0ee" stroke="#c0392b" stroke-width="1.3"/>
+  <text x="325" y="68" text-anchor="middle" font-size="10.5" fill="#a5342a" font-weight="600">se detiene aquí</text>
+  <text x="325" y="84" text-anchor="middle" font-size="8.8" fill="#b5564c">sin E2E, sin despliegue</text>
+
+  <text x="420" y="70" font-size="9.2" fill="#6b7789">Los E2E usan datos reales:</text>
+  <text x="420" y="84" font-size="9.2" fill="#6b7789">dos a la vez se estorbarían.</text>
+
+  <line x1="14" y1="120" x2="766" y2="120" stroke="#d7dee8"/>
+
+  <!-- fila main -->
+  <text x="14" y="150" font-size="10.5" fill="#5b6b80" font-weight="600">PUSH A MAIN</text>
+
+  <rect x="14" y="166" width="150" height="56" rx="5" fill="#1f6f8b"/>
+  <text x="89" y="188" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">check</text>
+  <text x="89" y="206" text-anchor="middle" font-size="9" fill="#d3ecf5">106 unitarias</text>
+
+  <line x1="164" y1="194" x2="196" y2="194" stroke="#1f6f8b" stroke-width="1.8" marker-end="url(#b)"/>
+
+  <rect x="200" y="166" width="164" height="56" rx="5" fill="#15506e"/>
+  <text x="282" y="188" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">e2e</text>
+  <text x="282" y="206" text-anchor="middle" font-size="9" fill="#bcd9e8">18 · Chromium real</text>
+
+  <line x1="364" y1="194" x2="396" y2="194" stroke="#1f6f8b" stroke-width="1.8" marker-end="url(#b)"/>
+
+  <rect x="400" y="166" width="164" height="56" rx="5" fill="#0f2f4f"/>
+  <text x="482" y="188" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">deploy</text>
+  <text x="482" y="206" text-anchor="middle" font-size="9" fill="#a9c6da">build local → prebuilt</text>
+
+  <line x1="564" y1="194" x2="596" y2="194" stroke="#1f6f8b" stroke-width="1.8" marker-end="url(#b)"/>
+
+  <rect x="600" y="166" width="166" height="56" rx="5" fill="#fff" stroke="#1f6f8b" stroke-width="1.6"/>
+  <text x="683" y="188" text-anchor="middle" font-size="11.5" fill="#0f2f4f" font-weight="600">verificación</text>
+  <text x="683" y="206" text-anchor="middle" font-size="8.8" fill="#5b6b80">¿vino renderizado?</text>
+
+  <!-- nota inferior -->
+  <rect x="14" y="252" width="752" height="62" rx="5" fill="#f3f6fa" stroke="#c9d4e0"/>
+  <text x="30" y="274" font-size="10" fill="#0f2f4f" font-weight="600">La integración automática de Vercel está desactivada a propósito.</text>
+  <text x="30" y="292" font-size="9.4" fill="#4a5a6e">Desplegaba en paralelo al pipeline sin mirarlo: una suite en rojo llegaba a producción igual.</text>
+  <text x="30" y="307" font-size="9.4" fill="#4a5a6e">Con «deploy» dependiendo de «e2e», las pruebas dejan de ser un informe y pasan a ser una puerta.</text>
+</svg>
+<figcaption><strong>Figura 3</strong> — Pipeline de integración continua y despliegue.</figcaption>
+</figure>
+
+<h3>6.1 La verificación final: por qué no basta con un código 200</h3>
+
+<p>El último paso pide la página recién publicada y falla si no llega renderizada en servidor.
+Comprobar el código de estado no serviría de nada: una aplicación con el SSR roto responde
+igualmente <code>200</code> con un esqueleto vacío, que es exactamente como este fallo pasó
+inadvertido durante horas. La comprobación honesta es buscar la marca que Angular deja en el
+HTML cuando lo ha renderizado el servidor.</p>
+
+<pre><span class="k">if</span> grep -q <span class="s">'ng-server-context="ssr"'</span> &lt;&lt;&lt;<span class="s">"$body"</span>; <span class="k">then</span>
+  echo <span class="s">"Server-rendered: $(wc -c &lt;&lt;&lt;"$body") bytes"</span>
+<span class="k">else</span>
+  echo <span class="w">"::error::No ng-server-context — la app cayó a renderizado en cliente."</span>
+  <span class="k">exit</span> 1
+<span class="k">fi</span></pre>
+
+<p>El parámetro aleatorio que acompaña a la petición evita leer una respuesta cacheada de un
+despliegue anterior, que daría por bueno lo que ya no se está comprobando.</p>
+
+<!-- ========================= 7 ========================= -->
+<h2>7. Limitaciones conocidas</h2>
+
+<ul>
+  <li>Quitar un libro de la lista de lectura no lo retira de las estanterías donde estuviera.</li>
+  <li>Open Library puede tardar demasiado durante el renderizado en servidor; la página se
+      sirve igualmente, pero en estado de carga.</li>
+  <li>El tamaño de cada elemento de <code>authors</code> no se valida en las reglas, solo el de
+      la lista (sección 4).</li>
+  <li>Las direcciones de cada despliegue quedan tras el acceso de Vercel; producción es pública,
+      condición necesaria para que el renderizado en servidor sirva de algo.</li>
+</ul>
+
+<!-- ========================= 8 ========================= -->
+<h2>8. Conclusiones</h2>
+
+<p>Separar con precisión qué ocurre en el servidor y qué en el navegador resultó ser la decisión
+estructural del proyecto: de ahí salen el modo de renderizado de cada ruta, la carga dinámica de
+Firestore y la espera del guard antes de decidir. Las tres son la misma idea aplicada en tres
+sitios distintos.</p>
+
+<p>Las reglas de seguridad demostraron que el diseño del modelo de datos <em>es</em> el diseño de
+la seguridad: colocar el identificador del dueño en la ruta del documento convierte la
+comprobación de propiedad en algo que no depende de ningún campo escribible por el cliente.</p>
+
+<p>Del pipeline, la lección fue que unas pruebas que no bloquean nada son un informe, no una
+garantía. Desactivar el despliegue automático para encadenarlo detrás de las pruebas end-to-end,
+y verificar después que lo publicado viene efectivamente renderizado, es lo que convierte el
+conjunto en algo en lo que apoyarse.</p>
+
+<!-- ========================= 9 ========================= -->
+<h2>9. Método de trabajo</h2>
+
+<p>El proyecto se construyó con asistencia de herramientas de IA, y el repositorio lo declara:
+<code>CLAUDE.md</code>, versionado junto al código, recoge las convenciones e instrucciones con
+las que se trabajó.</p>
+
+<p>Las decisiones que este informe documenta no salieron de esa asistencia, sino de observar el
+sistema en funcionamiento: desactivar el despliegue automático vino de comprobar que una suite en
+rojo alcanzaba producción igualmente, y la verificación de <code>ng-server-context</code>, de un
+fallo que pasó horas inadvertido porque una aplicación con el renderizado roto responde
+<code>200</code> con un esqueleto vacío. Son correcciones sobre algo que ya funcionaba y que,
+mirado por encima, parecía correcto. Esa es la parte que no se delega.</p>
